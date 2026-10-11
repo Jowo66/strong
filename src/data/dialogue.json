@@ -3,63 +3,128 @@
     ["How many sets left?", "Four. Probably six.", "Respect."],
     ["You using this?", "Two more sets.", "Cool cool cool."],
     ["Leg day?", "Every day is leg day.", "...that's not true."],
-    ["New shoes?", "Flat soles. For stability.", "Very serious."],
-    ["Is it hot in here?", "It's the pump.", "Ah."],
-    ["What's your split?", "Push, pull, nap.", "Elite."],
-    ["Did you see the construction crew?", "They built a bench in six seconds.", "Backwards, at first."],
-    ["Pre-workout kicking in?", "I can hear colours.", "Nice."],
-    ["Good form today.", "Thanks. I watched a video.", "One video?", "A long one."],
-    ["You come here often?", "Every day at this exact time.", "Same.", "We've never met?"],
-    ["How's the shoulder?", "Clicks a bit.", "Gym music."],
-    ["Protein shake after?", "Before, during, and after.", "Balanced."]
+    ["Is it me or is it hot in here?", "It's the cardio people.", "Always the cardio people."],
+    ["What's your split?", "Push, pull, nap.", "Solid."],
+    ["Did you stretch?", "Spiritually.", "Same."],
+    ["I'm doing a cut.", "Since when?", "Since lunch."],
+    ["Nice shoes.", "Thanks, they add five pounds to my squat.", "Science."],
+    ["How's the shoulder?", "Clicks a bit.", "Ah, the shoulder of a champion."],
+    ["New PR today?", "New PR in rest time.", "Proud of you."],
+    ["Do you ever skip leg day?", "Never.", "Liar.", "Twice."],
+    ["Pre-workout kicked in yet?", "I can hear colours.", "Nice."],
+    ["What song is this?", "No idea, but I'm lifting heavier.", "Same song, same energy."],
+    ["Five more minutes?", "You said that twenty minutes ago.", "Time is a construct."],
+    ["I'm only here for the water cooler.", "The water is very good.", "Elite hydration."],
+    ["Protein shake?", "Third today.", "Living the dream."],
+    ["How do you stay so consistent?", "I live closer to the gym than to my kitchen.", "Goals."],
+    ["Is that a new belt?", "It's a commitment.", "Respect the commitment."],
+    ["Whose turn is it to rerack?", "Not mine.", "Never yours."],
+    ["You training for anything?", "The stairs at home.", "Valid."],
+    ["Did you see that deadlift?", "I felt it in my soul.", "Floor's fine though."],
+    ["What's your rest timer at?", "Vibes.", "Classic."],
+    ["Mirror's free.", "Mirror's never free.", "Fair."],
+    ["Got chalk?", "Got three kinds.", "Of course you do."],
+    ["I think I've plateaued.", "Have you tried eating?", "...oh."],
+    ["Long day?", "Short gym, long day.", "The tiny gym understands."],
+    ["How much you bench?", "Depends who's asking.", "The bench is asking."],
+    ["Is this the queue?", "This is a lifestyle.", "Cool."],
+    ["Are those new plates?", "Same plates, new confidence.", "Love that."],
+    ["Hey {you}!", "{you}! Back again?", "Couldn't stay away."],
+    ["{you}, how's the {exercise} going?", "Ask me in four sets.", "Fair."],
+    ["{you}! Haven't seen you since yesterday.", "Felt like a week.", "Truly."],
+    ["Morning, {you}.", "Morning, {you}. Same plan as always?", "Same plan. Different suffering."],
+    ["Doing {exercise} again?", "{exercise} is a lifestyle.", "Respect."],
+    ["Save me a spot on the {exercise} after?", "No promises.", "Rude. Fair."],
+    ["Is it true you're {title}?", "I don't like to talk about it.", "...", "It is true."],
+    ["Can I get an autograph, {title}?", "Only on a towel.", "Deal."],
+    ["Seen {rival} today?", "Over by the mirror.", "Of course they are."],
+    ["{rival} is benching again.", "Let them.", "I'm going to bench harder."],
+    ["Tell {rival} I said hi.", "Tell them yourself.", "...no."]
   ],
   "flirt": [
     ["Hey.", "I'm on my rest timer."],
     ["Do you lift here often?", "I lift here now. Goodbye."],
-    ["Nice deadlift.", "Thanks. Thirty seconds left on my rest."],
-    ["Want to work in?", "I'm in my own world. Literally. Headphones."],
-    ["Can I borrow your chalk?", "It's emotional chalk. No."]
+    ["Is this seat taken?", "It's a bench. It's mine. For four sets."],
+    ["You've got great form.", "Thanks, I'm counting reps."],
+    ["Want to grab a shake after?", "I have a shake. It's right here."],
+    ["Nice... calves.", "Thank you. Please go away."],
+    ["I could spot you.", "I could also spot you. Leaving."],
+    ["What's your PR?", "Personal space. It's a record."],
+    ["Do you believe in love at first set?", "I believe in rest periods."],
+    ["Your playlist is fire.", "I'm not wearing headphones."],
+    ["Come here often?", "This is a gym."],
+    ["Mind if I work in... to your life?", "I mind."],
+    ["You look strong.", "I am strong. And busy."],
+    ["We should train together sometime.", "We are in the same gym. That's enough."],
+    ["Is that your water bottle?", "It's my emotional support bottle."]
   ],
-  "flirtExit": ["*walks away dramatically*", "*pretends to check phone*", "*stares at the ceiling for a while*"],
+  "flirtExit": ["*walks away dramatically*", "*retreats to the cable machines*", "*pretends to check phone*", "*stretches nothing in particular*", "*finds a wall to look at*", "*suddenly very interested in plates*"],
   "flexOff": {
-    "start": ["...", "Oh, it's ON.", "Mirror. Now."],
-    "winner": ["Undefeated.", "As expected."],
-    "loser": ["Rematch.", "The lighting was off."],
-    "mutual": ["Respect.", "Respect."],
-    "bothWon": ["I won.", "I won."],
-    "laugh": ["pfft", "hahaha", "*wheezes quietly*"]
+    "start": ["...", "Oh, it's ON.", "Mirror. Now.", "You. Me. Mirror.", "*cracks knuckles*"],
+    "winner": ["Undefeated.", "As expected.", "Too easy.", "The mirror has spoken.", "*bows*"],
+    "loser": ["Rematch.", "The lighting was off.", "I had a pump issue.", "I wasn't warmed up.", "My good side was facing away."],
+    "mutual": [
+      ["Respect.", "Respect."],
+      ["Looking strong.", "You too, honestly."],
+      ["Good pump.", "Great pump."],
+      ["*nods*", "*nods back*"],
+      ["We both win.", "We both win."]
+    ],
+    "bothWon": [
+      ["I won.", "I won."],
+      ["Clear victory.", "Clear victory."],
+      ["Good effort.", "Thanks. I won though."],
+      ["*victory pose*", "*bigger victory pose*"],
+      ["Undisputed.", "Undisputed (me)."]
+    ],
+    "laugh": ["pfft", "hahaha", "*wheezes quietly*", "*snorts into towel*", "*laughs into water bottle*"]
   },
   "spot": {
     "ask": ["Can you spot me?", "Quick spot?", "Spot? Just in case."],
     "accept": ["Got you.", "All you.", "I'm here."],
     "success": ["👊", "Nice rep."],
-    "overenthusiastic": ["ALL YOU! ALL YOU!", "LIGHT WEIGHT BABY!", "UP! UP! UP!"],
-    "overReply": ["...you had the whole bar.", "Thanks. My ears."]
+    "overenthusiastic": ["ALL YOU! ALL YOU!", "LIGHT WEIGHT BABY!", "YEAHHH BUDDY!", "ONE MORE! TWO MORE!", "YOU GOT THIS! I GOT THIS! WE GOT THIS!", "PUSH! PUSH!"],
+    "overReply": ["...you had the whole bar.", "That one was yours, really.", "I'll put you down as a co-author.", "Thanks. My ears are ringing.", "Did you even let go?"]
   },
   "pr": {
-    "lifter": ["NEW PR!", "LET'S GO!", "Was that a PR? That was a PR."],
-    "clap": ["👏", "👏👏", "Big!"],
-    "pretend": ["*definitely not watching*", "*very interested in shoelace*"]
+    "lifter": ["PR!!", "LET'S GOOO!", "New personal record!", "I'm telling my mum.", "*screams internally*", "THE BAR BLINKED."],
+    "clap": ["👏", "Nice!", "Beast.", "LET'S GO!", "That's huge.", "Respect!"],
+    "pretend": ["*definitely not watching*", "*ties shoelace intently*", "*studies the ceiling*", "*suddenly needs water*", "*reads the poster carefully*", "*checks phone very hard*"]
   },
   "lostBottle": {
-    "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My water…"],
-    "found": ["…it was here the whole time.", "Found it. Right where I left it."]
+    "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My bottle!", "Bottle? Bottle!", "Not again."],
+    "found": ["...it was here the whole time.", "Oh. There it is.", "I knew that.", "Nobody saw that.", "We were never apart."]
   },
-  "noRerack": ["*leaves plates on*", "Someone else'll get it."],
-  "photoOp": ["📸", "One more angle.", "For the story."],
-  "grunt": ["HNNGH", "HUP!", "RAAH"],
-  "checkIn": ["Morning!", "Hey!", "*beep*", "Here again."],
+  "noRerack": ["*leaves plates on*", "Someone else will get it.", "The plates like it there.", "Free warm-up for the next person.", "*walks away from 225*", "It's a gift."],
+  "photoOp": ["📸 One for the 'gram.", "📸 *loads three plates for the photo*", "📸 Hold on, lighting.", "📸 Get my good side.", "📸 This is for content.", "📸 *takes a plate off immediately after*"],
+  "grunt": ["HNNGH", "HUP!", "RAAH", "HRRK", "YAH!"],
+  "checkIn": ["Morning!", "Hey!", "*beep*", "Here again.", "Back for more.", "*beep beep*", "The usual.", "Wish me luck."],
   "crew": {
-    "arrive": ["Coming through!", "Mind the planks!"],
-    "drop": ["Oops.", "That's fine.", "Nobody saw that."],
-    "backwards": ["Hmm.", "Other way!"],
-    "celebrate": ["🎉", "WE DID IT!", "Masterpiece."],
-    "remove": ["Packing up!", "Not needed? Fair."],
-    "wave": ["👋 {name}!", "Hey, it's {name}!"]
+    "arrive": ["Coming through!", "Mind the planks!", "Crew on the floor!", "Station incoming!", "Make way, make way!"],
+    "drop": ["Oops.", "That's fine.", "Nobody saw that.", "*clang*", "That was the spare."],
+    "backwards": [
+      ["Hmm.", "Other way!"],
+      ["Wait...", "Flip it!"],
+      ["Is it facing the wall?", "Turn it round!"],
+      ["Looks great.", "It's backwards, mate."],
+      ["Ta-da!", "...ta-da the other way."],
+      ["Perfect.", "Rotate. Rotate!"]
+    ],
+    "celebrate": ["🎉", "WE DID IT!", "Masterpiece.", "Another beauty.", "Built to last. Probably."],
+    "celebrateLong": ["Group hug!", "One more cheer!", "Photo! Everyone in!", "Speech! Speech!", "I'm not crying, you're crying."],
+    "remove": ["Packing up!", "Not needed? Fair.", "Take it down, lads.", "Easy come, easy go."],
+    "wave": ["👋 {name}!", "Hey, it's {name}!", "Our favourite customer!", "{name}! We built this one for you. Well, not you."],
+    "plank": [
+      ["Pivot!", "PIVOT!", "PIVOT!!"],
+      ["Left a bit!", "Your left!", "MY left!"],
+      ["It won't go!", "Tilt it!", "...the other tilt."],
+      ["Easy...", "Easy...", "*bonk*"],
+      ["Who measured the door?", "There's no door.", "Then why are we stuck?!"]
+    ]
   },
   "title": {
     "won": ["⭐ {title}"],
-    "react": ["Legend.", "*nods respectfully*", "Is that…?"]
+    "react": ["Legend.", "*nods respectfully*", "Is that…?", "Well deserved.", "*slow clap*"]
   },
   "ceremony": {
     "announce": ["The {year} Gym Legends Awards!"],
@@ -69,8 +134,39 @@
     "podium": ["One podium, coming up!", "Ceremony! Look busy!"]
   },
   "recognition": {
-    "nod": ["*nods respectfully*", "*respectful nod*"],
-    "doubleTake": ["Wait, is that {name}?", "…{name}?!", "*double take*"],
-    "imitate": ["*copies {name}'s pose*", "*tries the {name} pose*"]
+    "nod": ["*nods respectfully*", "*respectful nod*", "*tiny salute*", "*nods slowly, impressed*", "*tips water bottle*", "*approving eyebrows*"],
+    "doubleTake": ["Wait, is that {name}?", "…{name}?!", "*double take*", "Is that THE {name}?", "*whispers* that's {name}.", "*looks twice at {name}*"],
+    "imitate": ["*copies {name}'s pose*", "*tries the {name} pose*", "*practises {name}'s flex in the mirror*", "*attempts {name}'s signature pose. Pulls something.*"]
+  },
+  "_notes": "Lines are picked least-recently-used, so a joke only repeats after the rest of its pool has had a turn. Placeholders: {you} = the person spoken to, {me} = the speaker, {exercise} = the speaker's current exercise, {rival} = the speaker's rival, {title} = the listener's featured title. A line that needs a placeholder the situation can't fill is never picked.",
+  "rival": {
+    "glance": ["*side-eye at {you}*", "...{you}.", "*narrows eyes*", "*pretends not to see {you}*", "*adds a plate, looking at {you}*"],
+    "glanceReply": ["...{you}.", "*side-eye back*", "*flexes slightly*", "Hmph."],
+    "pr": ["Hmph.", "Lucky.", "*adds 5 lb out of spite*", "I'll get that tomorrow.", "Light weight.", "...nice. I guess."]
+  },
+  "greet": {
+    "hello": ["Hey {you}!", "{you}! Morning!", "Look who it is! {you}!", "{you}! Same time as always.", "Ayy, {you}.", "There's {you}!", "{you}! You're early."],
+    "reply": ["{you}! 👋", "Hey hey, {you}.", "Morning, {you}!", "*fist bump*", "{you}! Let's get it."]
+  },
+  "workIn": {
+    "ask": ["Can I work in?", "Mind if I jump in between sets?", "Can I work in with you?", "Working in?", "Room for one more?", "Mind if I alternate with you?", "How many sets left? Can I hop in?", "Share the bench?"],
+    "yes": ["Sure, go ahead.", "Yeah! I'll be quick.", "Of course. I'll cut a set.", "Sure thing, I'm almost done.", "Go for it.", "Absolutely, jump in."],
+    "no": ["I've got... six more sets.", "I'm in the zone, sorry.", "Superset. Ten more minutes.", "Just one more set. Probably four.", "I'm mid-drop-set.", "Give me... a while."]
+  },
+  "rackCurl": {
+    "react": ["...in the squat rack?", "*sighs in powerlifter*", "Bold choice.", "There are dumbbells RIGHT there.", "*stares at the squat rack, then at them*", "It's a curl rack now, I guess."]
+  },
+  "phoneHog": {
+    "ring": ["*ring ring*", "*bzzt bzzt*", "*ringtone: motivational speech*"],
+    "talk": ["Hello? Yeah, I'm at the gym.", "No, I'm not busy.", "Mum? Yes I'm eating enough.", "Can I call you back? ...Actually no, go on.", "No no, tell me everything."],
+    "waiting": ["...", "*taps foot*", "*sighs very loudly*", "*checks invisible watch*", "Any minute now."]
+  },
+  "heavyDrop": {
+    "boom": ["*BOOM*", "*KA-THOOM*", "*CLANG*", "*THUD*", "*CRASH*"],
+    "react": ["!!", "*jumps*", "WHAT WAS THAT", "*drops water bottle*", "Earthquake?!", "*clutches chest*"]
+  },
+  "warmup": {
+    "start": ["Just a quick warm-up.", "Warm-up set, won't be long.", "Easy one to start.", "Just getting the blood flowing.", "Two minutes, tops."],
+    "still": ["Still warming up.", "Almost warm.", "Getting there.", "Warm-up... continues.", "This is the warm-up."]
   }
 }

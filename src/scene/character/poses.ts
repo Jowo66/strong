@@ -16,7 +16,7 @@ export interface Pose {
   brows: number;  // -1 frown/focused … 0 neutral … 1 raised/surprised
   blink: number;  // 1 open … 0.1 shut
 }
-export type Prop = 'none' | 'barbell' | 'ezbar' | 'dumbbells' | 'dumbbell' | 'phone' | 'bottle' | 'chalk';
+export type Prop = 'none' | 'barbell' | 'ezbar' | 'dumbbells' | 'dumbbell' | 'phone' | 'bottle' | 'chalk' | 'plank';
 
 export interface PoseContext {
   anim: Anim;
@@ -26,6 +26,7 @@ export interface PoseContext {
   t: number;             // seconds, with a per-member phase offset
   variant: number;       // stable per member, 0..1
   reduced: boolean;
+  carry?: boolean;       // crew carrying a plank
 }
 
 const PI = Math.PI;
@@ -95,7 +96,7 @@ function walkCycle(p: Pose, t: number, speed: number, stride: number): void {
 export function propFor(exercise: string | undefined): Prop {
   switch (exercise) {
     case 'bench_press': case 'incline_press': case 'back_squat': case 'front_squat': case 'overhead_press':
-    case 'deadlift': case 'romanian_deadlift': case 'barbell_row': case 'hip_thrust':
+    case 'deadlift': case 'romanian_deadlift': case 'barbell_row': case 'hip_thrust': case 'rack_curl':
       return 'barbell';
     case 'skull_crusher':
       return 'ezbar';
@@ -169,6 +170,12 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
       hinge(p, 0.95, 0.35);
       p.armL = [-0.95 + s * 0.85, 0, -0.15]; p.armR = [-0.95 + s * 0.85, 0, 0.15];
       p.foreL = [-s * 1.5, 0, 0]; p.foreR = [-s * 1.5, 0, 0];
+      return;
+    case 'rack_curl':
+      p.armL = [-0.1, 0, -0.2]; p.armR = [-0.1, 0, 0.2];
+      p.foreL = [-0.2 - 2.0 * s, 0, 0]; p.foreR = [-0.2 - 2.0 * s, 0, 0];
+      p.spine = [-0.12 * s, 0, 0]; // the tell-tale lean back
+      p.mouth = s > 0.8 ? 0.4 : 0.1;
       return;
     case 'db_curl': case 'hammer_curl':
       p.armL = [-0.1, 0, -0.12]; p.armR = [-0.1, 0, 0.12];
@@ -285,6 +292,12 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
 // ---------- everything else ----------
 
 export function computePose(ctx: PoseContext): Pose {
+  const p = basePose(ctx);
+  if (ctx.carry) { p.armL = [-1.15, 0, -0.3]; p.armR = [-1.15, 0, 0.3]; p.foreL = [-0.55, 0, 0.2]; p.foreR = [-0.55, 0, -0.2]; }
+  return p;
+}
+
+function basePose(ctx: PoseContext): Pose {
   const p = restPose();
   const { t, reduced } = ctx;
   const m = reduced ? 0.35 : 1;
@@ -501,6 +514,7 @@ export function propForPose(ctx: PoseContext): Prop {
   if (ctx.anim === 'drink') return 'bottle';
   if (ctx.anim === 'phone') return 'phone';
   if (ctx.anim === 'chalk') return 'chalk';
+  if (ctx.carry) return 'plank';
   if (ctx.anim === 'idle' && !ctx.resting && Math.floor(ctx.t / 7 + ctx.variant * 4) % 4 === 2) return 'phone';
   return 'none';
 }

@@ -198,12 +198,12 @@ describe('engine', () => {
   it.each([5, 17, 99])('over a full busy day (seed %i) nobody walks through a station that is not theirs, and nobody waits more than 30 s without a build', (seed) => {
     const eng = new SimEngine(c, saveWith(90), { dayLength: 600, cap: 40, members: 90, mixChance: 0 }, seed);
     const fps = () => eng.stations.map((s) => ({ s, r: footprint(c, s.type, s.pos, s.rot) }));
-    let rects = fps(), stationCount = eng.stations.length;
+    let rects = fps();
     let longestWaitWithoutBuild = 0, checks = 0;
     const steps = Math.round(600 / STEP);
     for (let i = 0; i < steps; i++) {
       eng.step(STEP);
-      if (eng.stations.length !== stationCount) { rects = fps(); stationCount = eng.stations.length; }
+      rects = fps(); // temporary stations come and go
       for (const a of eng.agents.values()) {
         // allowed: their own station, the one they just stepped off, the one they're walking onto, the one they're spotting at
         const spotOf = [...eng.interactions.values()].find((it) => it.type === 'spot' && it.participants[1] === a.npcId)?.data.stationId;
@@ -259,6 +259,22 @@ describe('engine', () => {
     const regulars = Object.values(eng.save.members).filter((m) => m.attendance >= c.progression.regularThreshold);
     expect(regulars.length).toBeGreaterThan(5);
     for (const r of regulars) expect(r.moments.length, `${r.firstName} has too few moments`).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each([3, 8, 13])('a 10-minute watch at 1x (seed %i) has at least 8 distinct humour beats and no joke more than twice', (seed) => {
+    // an established gym (people know each other, there are rivals and titles), default settings, watched for one 10-minute day
+    const save = SimEngine.createSave(c, { members: 50, mixChance: 0, seed, createdAt: '2026-03-02' });
+    const eng = new SimEngine(c, save, { dayLength: 600, cap: 25, members: 50, mixChance: 0 }, seed);
+    for (let i = 0; i < Math.round((600 * 3) / STEP); i++) eng.step(STEP);
+    const start = eng.simTime;
+    for (let i = 0; i < Math.round(600 / STEP); i++) eng.step(STEP);
+    const watched = eng.beats.filter((b) => b.at >= start);
+    const cats = new Set(watched.map((b) => b.cat));
+    const counts = new Map<string, number>();
+    for (const b of watched) counts.set(b.key, (counts.get(b.key) ?? 0) + 1);
+    const worst = [...counts.entries()].sort((x, y) => y[1] - x[1])[0];
+    expect(cats.size, [...cats].join(', ')).toBeGreaterThanOrEqual(8);
+    expect(worst[1], `"${worst[0]}" repeated ${worst[1]} times`).toBeLessThanOrEqual(2);
   });
 
   it('catches up missed days and hands out annual titles at new year', () => {

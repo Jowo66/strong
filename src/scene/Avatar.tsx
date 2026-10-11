@@ -20,6 +20,8 @@ export interface AvatarSource {
   outfit?: 'street' | 'gym'; aura?: number;
   exercise?: string; resting?: boolean; stationType?: string; weight?: number;
   y?: number;                 // standing on something (the podium)
+  carry?: 'plank' | null;     // crew carrying a plank
+  carryRot?: number;          // 0 = sideways (stuck in doorways), π/2 = lengthwise
   banner?: Bubble | null;     // title banner after winning
 }
 
@@ -49,6 +51,8 @@ const bottleGeo = (() => {
   return mergeGeometries([paint(body, '#8ECAE6'), paint(cap, '#264653')])!;
 })();
 const puffGeo = new THREE.IcosahedronGeometry(0.05, 0);
+const plankGeo = new THREE.BoxGeometry(2.2, 0.05, 0.22);
+const plankMaterial = new THREE.MeshStandardMaterial({ color: '#C69C6D', roughness: 0.8 });
 const puffMaterial = new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.8, depthWrite: false });
 const auraGeo = new THREE.OctahedronGeometry(0.06, 0);
 const hitGeo = new THREE.CapsuleGeometry(0.35, 1.0, 2, 8).translate(0, 0.9, 0);
@@ -98,6 +102,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const phone = useRef<THREE.Mesh>(null!);
   const bottle = useRef<THREE.Mesh>(null!);
   const puff = useRef<THREE.InstancedMesh>(null!);
+  const plank = useRef<THREE.Mesh>(null!);
   const aura = useRef<THREE.Group>(null!);
   const auraParticles = useRef<THREE.InstancedMesh>(null!);
   const auraLight = useRef<THREE.PointLight>(null!);
@@ -152,7 +157,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     // --- pose ---
     const c = ctx.current;
     c.anim = a.anim; c.exercise = a.exercise; c.resting = a.resting; c.stationType = a.stationType;
-    c.t = state.clock.elapsedTime + phase; c.reduced = reducedMotion;
+    c.t = state.clock.elapsedTime + phase; c.reduced = reducedMotion; c.carry = a.carry === 'plank';
     const target = computePose(c);
     blendPose(pose.current, target, Math.min(1, dt * 14));
     const p = pose.current, B = rig.byName, R = rig.dims.rest;
@@ -181,6 +186,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     phone.current.visible = prop === 'phone';
     bottle.current.visible = prop === 'bottle';
     puff.current.visible = prop === 'chalk';
+    plank.current.visible = prop === 'plank';
     if (prop !== 'none') {
       g.updateMatrixWorld(true);
       m4.copy(g.matrixWorld).invert();
@@ -210,6 +216,10 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
           const s = 0.85 + Math.min(0.6, (a.weight ?? 20) / 120);
           dbL.current.scale.setScalar(s); dbR.current.scale.setScalar(s);
         }
+      }
+      if (plank.current.visible) {
+        plank.current.position.copy(hl).add(hr).multiplyScalar(0.5);
+        plank.current.rotation.set(0, a.carryRot ?? 0, 0);
       }
       if (bottle.current.visible) {
         bottle.current.position.copy(hr);
@@ -293,6 +303,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
         <mesh ref={phone} geometry={phoneGeo} material={phoneMaterial} visible={false} />
         <mesh ref={bottle} geometry={bottleGeo} material={propMaterial} visible={false} castShadow />
         <instancedMesh ref={puff} args={[puffGeo, puffMaterial, 6]} visible={false} />
+        <mesh ref={plank} geometry={plankGeo} material={plankMaterial} visible={false} castShadow />
       </group>
       <group ref={aura} visible={false}>
         <instancedMesh ref={auraParticles} args={[auraGeo, undefined, AURA_N]}>

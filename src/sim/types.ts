@@ -20,7 +20,8 @@ export interface Vec2 { x: number; z: number }
 export type MomentType =
   | 'pr' | 'flexOffWin' | 'flexOffLoss' | 'flexOffDraw' | 'spot' | 'overSpot'
   | 'construction' | 'lostBottle' | 'noRerack' | 'photoOp' | 'flirtFail'
-  | 'streak' | 'titleWon' | 'titleLost' | 'ceremony';
+  | 'streak' | 'titleWon' | 'titleLost' | 'ceremony'
+  | 'rackCurl' | 'phoneHog' | 'heavyDrop' | 'longWarmup';
 
 export interface Moment {
   id: string;
@@ -183,6 +184,11 @@ export interface Agent {
   breakKind?: BreakKind | null;
   elev?: number;                 // standing on something (the awards podium)
   banner?: Bubble | null;        // title banner over the head after winning a title
+  workInAsked?: boolean;         // already asked "Can I work in?" this wait
+  rackCurl?: boolean;            // curling in the squat rack
+  onCall?: boolean;              // taking a phone call on the machine
+  phoneUsed?: boolean;
+  warmup?: boolean;              // the very long warm-up set of 135
 }
 
 export interface Station {
@@ -200,7 +206,10 @@ export interface Station {
   unracked: number;       // seconds the plates stay visibly loaded
 }
 
-export interface CrewMember { id: string; slot: number; pos: Vec2; facing: number; path: Vec2[]; anim: Anim; bubble: Bubble | null }
+export interface CrewMember {
+  id: string; slot: number; pos: Vec2; facing: number; path: Vec2[]; anim: Anim; bubble: Bubble | null;
+  carry?: 'plank' | null; carryRot?: number; stuck?: number; pivoted?: boolean;
+}
 
 export interface CrewJob {
   id: string;
@@ -211,6 +220,10 @@ export interface CrewJob {
   crew: CrewMember[];
   requestedBy: string | null;
   gag: 'backwards' | 'drop' | null;
+  gagLine?: number;         // which backwards-gag script
+  plankLine?: number;       // which plank-pivot script
+  plankGag?: boolean;       // a plank carried sideways gets stuck at the entrance
+  longCelebrate?: boolean;  // celebrating a little too long
 }
 
 export type InteractionType = 'conversation' | 'flirt' | 'flexOff' | 'spot' | 'ceremony';

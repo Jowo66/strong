@@ -294,7 +294,7 @@ export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; 
     if (kitRef.current) kitRef.current.visible = s.building;
 
     const occ = s.occupant ? eng.agents.get(s.occupant) : undefined;
-    const ex = occ ? occ.routine[occ.index]?.exerciseId : undefined;
+    const ex = occ ? (occ.rackCurl ? 'rack_curl' : occ.routine[occ.index]?.exerciseId) : undefined;
     const inUse = !!occ && (occ.state === 'lifting' || (occ.state === 'interacting' && occ.paused?.state === 'lifting'));
 
     if (rack && rackBar.current) {

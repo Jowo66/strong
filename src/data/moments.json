@@ -15,6 +15,10 @@
     "streak":        { "notability": 5,                                  "feed": "{name} is on a {detail}-day streak." },
     "titleWon":      { "notability": 9,                                  "feed": "{name} is now {detail}!" },
     "titleLost":     { "notability": 5,                                  "feed": "{name} is now {detail}." },
-    "ceremony":      { "notability": 8,                                  "feed": "{name} took a bow at the awards as {detail}." }
+    "ceremony":      { "notability": 8,                                  "feed": "{name} took a bow at the awards as {detail}." },
+    "rackCurl":      { "notability": 3,                                  "feed": "{name} did curls in the squat rack. People noticed." },
+    "phoneHog":      { "notability": 3,                                  "feed": "{name} took a phone call on {detail}. The queue waited." },
+    "heavyDrop":     { "notability": 4,                                  "feed": "{name} dropped {detail} from the top. Everyone jumped." },
+    "longWarmup":    { "notability": 3,                                  "feed": "{name} spent twenty minutes on a warm-up set of {detail}." }
   }
 }

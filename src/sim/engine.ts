@@ -55,6 +55,25 @@ export interface Ceremony {
 /** Podium blocks in podium-local X (1st in the middle) with their heights, plus two spots beside it for extra winners. */
 export const PODIUM_SPOTS = [{ x: 0, h: 0.7 }, { x: -1.0, h: 0.48 }, { x: 1.0, h: 0.32 }, { x: -1.85, h: 0 }, { x: 1.85, h: 0 }];
 
+/** Fill-in values for dialogue lines (see src/data/dialogue.json _notes). */
+export interface LineVars { you?: string; me?: string; exercise?: string; rival?: string; title?: string; name?: string }
+const PLACEHOLDER = /\{(you|me|exercise|rival|title|name)\}/g;
+export function canFill(text: string, v: LineVars): boolean {
+  for (const m of text.matchAll(PLACEHOLDER)) if (!v[m[1] as keyof LineVars]) return false;
+  return true;
+}
+export function fillLine(text: string, v: LineVars): string {
+  return text.replace(PLACEHOLDER, (_, k: keyof LineVars) => v[k] ?? '');
+}
+
+/** Dialogue categories that count as humour beats (the M4 acceptance check counts these). */
+export const HUMOUR = new Set([
+  'conversations', 'flirt', 'flexOff.bothWon', 'flexOff.mutual', 'flexOff.laugh', 'flexOff.loser', 'spot.overenthusiastic', 'pr.pretend',
+  'lostBottle.start', 'noRerack', 'photoOp', 'crew.drop', 'crew.backwards', 'crew.celebrateLong', 'crew.plank', 'crew.wave',
+  'rival.glance', 'rival.pr', 'workIn.ask', 'rackCurl.react', 'phoneHog.talk', 'heavyDrop.boom', 'warmup.start',
+  'recognition.imitate', 'recognition.doubleTake', 'greet.hello',
+]);
+
 export interface AgentInfo {
   npcId: string; name: string; title: string | null; goal: string; exercise: string | null;
   progress: string; activity: string; isPlayer: boolean; traits: string[];
@@ -77,6 +96,10 @@ export class SimEngine {
   /** Seconds of simulated time since this engine started (for cooldowns). */
   simTime = 0;
   private recognitionCooldown = new Map<string, number>();
+  /** Recent humour beats: category and which line (for variety checks). */
+  beats: { cat: string; key: string; at: number }[] = [];
+  private lineUses = new Map<string, number[]>();
+  private pendingSays: { id: string; text: string; at: number; ttl: number }[] = [];
   private acc = 0;
   private quiet = false; // suppresses per-event feed lines during catch-up
   private eventAcc = 0;
@@ -98,7 +121,7 @@ export class SimEngine {
         const a = this.agents.get(change.record.holderId);
         if (a && change.kind === 'won') {
           a.banner = { text: `⭐ ${titleLabel(c, change.record)}`, ttl: 5 };
-          for (const other of this.agentsNear(a.pos, 6, a.npcId)) if (this.rng.chance(0.4)) this.say(other, this.rng.pick(c.dialogue.title.react));
+          for (const other of this.agentsNear(a.pos, 6, a.npcId)) if (this.rng.chance(0.4)) this.say(other, this.line('title.react', c.dialogue.title.react));
         }
       },
     };
@@ -254,6 +277,11 @@ export class SimEngine {
     if (this.eventAcc >= 1) { this.eventAcc -= 1; this.rollSocialEvents(); }
     this.simTime += h;
     if (this.ceremony) this.updateCeremony(h);
+    if (this.pendingSays.length) {
+      const due = this.pendingSays.filter((p) => p.at <= this.simTime);
+      this.pendingSays = this.pendingSays.filter((p) => p.at > this.simTime);
+      for (const p of due) { const a = this.agents.get(p.id); if (a) this.say(a, p.text, p.ttl); }
+    }
     let removed = false;
     for (const [id, a] of this.agents) {
       if (a.bubble) { a.bubble.ttl -= h; if (a.bubble.ttl <= 0) a.bubble = null; }
@@ -464,7 +492,7 @@ export class SimEngine {
         const r = this.moveAgent(a, h, WALK_SPEED * 0.8);
         if (r.facing !== undefined) a.facing = r.facing;
         if (r.done) {
-          this.say(a, this.rng.pick(this.c.dialogue.lostBottle.found), 2.6);
+          this.say(a, this.line('lostBottle.found', this.c.dialogue.lostBottle.found), 2.6);
           recordMoment(this.chronicle, a.npcId, 'lostBottle', { zone: this.zoneAt(a.pos) });
           const p = a.paused; a.paused = null;
           this.faceStation(a);
@@ -478,7 +506,7 @@ export class SimEngine {
         break;
       case 'changing':
         a.timer -= h;
-        if (a.timer <= 0) { a.outfit = 'gym'; this.enter(a, 'choosing'); }
+        if (a.timer <= 0) { a.outfit = 'gym'; this.greetFriends(a); this.enter(a, 'choosing'); }
         break;
       case 'choosing':
         this.chooseStation(a);
@@ -516,7 +544,7 @@ export class SimEngine {
       case 'checkIn':
         a.timer = 1.2;
         a.facing = Math.PI;
-        if (this.rng.chance(0.35)) this.say(a, this.rng.pick(this.c.dialogue.checkIn));
+        if (this.rng.chance(0.35)) this.say(a, this.line('checkIn', this.c.dialogue.checkIn));
         break;
       case 'changing':
       case 'changingOut':
@@ -550,9 +578,26 @@ export class SimEngine {
         this.onSetStart(a, st);
         break;
       }
-      case 'resting':
+      case 'resting': {
         a.timer = timer ?? item?.restSeconds ?? 5;
+        a.onCall = false;
+        // the machine-hogger phone call: only when someone is queueing for this exact station
+        const st = this.station(a.stationId);
+        if (timer === null && st && (st.type === 'cable' || st.type === 'bench') && !a.phoneUsed
+          && [...this.agents.values()].some((o) => o.queueFor === st.id) && this.rng.chance(this.c.events.phoneHog.chance)) {
+          const d = this.c.dialogue.phoneHog;
+          a.phoneUsed = true;
+          a.onCall = true;
+          a.timer += this.c.events.phoneHog.extraSeconds;
+          this.say(a, this.line('phoneHog.ring', d.ring), 1.6);
+          this.sayLater(a, this.line('phoneHog.talk', d.talk), 1.8, 2.8);
+          this.sayLater(a, this.line('phoneHog.talk2', d.talk), 5.2, 2.8);
+          const waiter = [...this.agents.values()].find((o) => o.queueFor === st.id);
+          if (waiter) this.sayLater(waiter, this.line('phoneHog.waiting', d.waiting), 3.6);
+          recordMoment(this.chronicle, a.npcId, 'phoneHog', { zone: st.zone, detail: st.label, witnesses: this.witnesses(a) });
+        }
         break;
+      }
       case 'gone':
         break;
       default:
@@ -570,6 +615,7 @@ export class SimEngine {
         return ex?.category === 'cardio' ? 'cardio' : ex?.category === 'mobility' || ex?.station === 'mat' ? 'stretch' : 'lift';
       }
       case 'interacting': return a.anim;
+      case 'resting': return a.onCall ? 'phone' : 'idle';
       case 'changing': case 'changingOut': return 'change';
       case 'break': return a.breakKind === 'water' ? 'drink' : a.breakKind === 'mirror' ? 'mirrorCheck' : a.breakKind === 'chalk' ? 'chalk' : 'phone';
       default: return 'idle';
@@ -584,7 +630,7 @@ export class SimEngine {
       case 'changingOut': return 'Changing to go home';
       case 'waiting': return 'Waiting for a station';
       case 'lifting': return `Set ${a.setsDone + 1}/${a.routine[a.index]?.sets ?? 1}`;
-      case 'resting': return 'Resting';
+      case 'resting': return a.onCall ? 'On the phone (someone is waiting)' : 'Resting';
       case 'break': return a.breakKind === 'water' ? 'Grabbing some water' : a.breakKind === 'mirror' ? 'Checking the mirror' : a.breakKind === 'chalk' ? 'Chalking up' : 'Scrolling on their phone';
       case 'searching': return 'Looking for water bottle';
       case 'interacting': {
@@ -605,8 +651,25 @@ export class SimEngine {
     if (a.index >= a.routine.length) { this.finishVisit(a); return; }
     const ex = this.c.exerciseById[a.routine[a.index].exerciseId];
     const free = this.stations.filter((s) => s.type === ex.station && this.isFree(s));
+    // the person who curls in the squat rack
+    if (!free.length && (ex.id === 'db_curl' || ex.id === 'hammer_curl') && this.rng.chance(this.c.events.rackCurl.chance)) {
+      const rack = this.stations.filter((s) => s.type === 'squatRack' && this.isFree(s)).sort((p, q) => dist(p.pos, a.pos) - dist(q.pos, a.pos))[0];
+      if (rack) {
+        rack.reservedBy = a.npcId;
+        a.stationId = rack.id;
+        a.setsDone = 0;
+        a.rackCurl = true;
+        this.goTo(a, rack.pos, 'lifting', null, rack);
+        return;
+      }
+    }
     if (free.length) {
-      const st = free.reduce((b, s) => (dist(s.pos, a.pos) < dist(b.pos, a.pos) ? s : b));
+      // rivals like to train next to each other
+      const rival = this.rivalOf(a.npcId);
+      const rivalAgent = rival ? this.agents.get(rival) : undefined;
+      const rivalSt = rivalAgent?.stationId ? this.station(rivalAgent.stationId) : undefined;
+      const from = rivalSt && this.rng.chance(this.c.events.rivals.neighbourChance) ? rivalSt.pos : a.pos;
+      const st = free.reduce((b, s) => (dist(s.pos, from) < dist(b.pos, from) ? s : b));
       st.reservedBy = a.npcId;
       a.stationId = st.id;
       a.setsDone = 0;
@@ -642,6 +705,20 @@ export class SimEngine {
       this.goTo(a, st.pos, 'lifting', null, st);
       return;
     }
+    // "Can I work in?"
+    const q = this.station(a.queueFor ?? null);
+    const occ = q?.occupant ? this.agents.get(q.occupant) : undefined;
+    if (!a.workInAsked && a.waitTime > 1.5 && occ && occ.state === 'resting' && occ.timer > 3 && !occ.interactionId) {
+      a.workInAsked = true;
+      if (this.rng.chance(this.c.events.workIn.askChance)) {
+      const d = this.c.dialogue.workIn;
+      this.say(a, this.line('workIn.ask', d.ask), 2.2);
+      const yes = this.rng.chance(this.c.events.workIn.yesChance);
+      this.sayLater(occ, this.line(yes ? 'workIn.yes' : 'workIn.no', yes ? d.yes : d.no), 1.2);
+      const item = occ.routine[occ.index];
+      if (yes && item && item.sets - occ.setsDone > 1) item.sets -= 1; // they cut a set so the queue moves
+      }
+    }
     const ev = this.c.events.construction;
     const pending = this.stations.some((s) => s.reservedBy === a.npcId && s.building);
     if (!pending && a.waitTime > this.c.events.waitBeforeBuild) this.requestBuild(ex.station, a.npcId);
@@ -650,6 +727,7 @@ export class SimEngine {
       this.say(a, 'Skipping it.');
       a.index += 1;
       a.queueFor = null;
+      a.workInAsked = false;
       this.enter(a, 'choosing');
     }
   }
@@ -658,18 +736,34 @@ export class SimEngine {
     const npc = this.save.members[a.npcId];
     const ex = this.c.exerciseById[a.routine[a.index].exerciseId];
     const ev = this.c.events;
-    if (this.rng.chance(ev.grunt.perTrigger * (npc.traits.includes('grunter') ? 1 : 0))) this.say(a, this.rng.pick(this.c.dialogue.grunt), 1.2);
+    if (this.rng.chance(ev.grunt.perTrigger * (npc.traits.includes('grunter') ? 1 : 0))) this.say(a, this.line('grunt', this.c.dialogue.grunt), 1.2);
     if (a.setsDone === 0 && ex.photoOp && ex.weight && this.rng.chance(ev.photoOp.perTrigger * this.mod(npc, 'photoOp'))) {
       const w = Math.round(((npc.weights[ex.id] ?? 0) * 1.6) / 5) * 5;
-      this.say(a, this.rng.pick(this.c.dialogue.photoOp), 2.5);
+      this.say(a, this.line('photoOp', this.c.dialogue.photoOp), 2.5);
       recordMoment(this.chronicle, a.npcId, 'photoOp', { zone: st.zone, detail: `${w} lb`, witnesses: this.witnesses(a) });
     }
-    if (ex.spot) this.maybeStartSpot(a, st);
+    if (ex.spot && !a.rackCurl) this.maybeStartSpot(a, st);
+    if (a.setsDone === 0 && a.rackCurl) {
+      const w = this.agentsNear(a.pos, 8, a.npcId).filter((o) => !o.interactionId && o.state !== 'lifting');
+      if (w.length) { const o = this.rng.pick(w); this.say(o, this.line('rackCurl.react', this.c.dialogue.rackCurl.react), 2.6); o.anim = 'doubleTake'; o.react = 1.5; }
+      recordMoment(this.chronicle, a.npcId, 'rackCurl', { zone: st.zone, witnesses: this.witnesses(a) });
+    }
+    // the warm-up set of 135 that takes twenty minutes
+    if (a.setsDone === 0 && (ex.id === 'bench_press' || ex.id === 'back_squat') && this.rng.chance(this.c.events.longWarmup.chance)) {
+      const d = this.c.dialogue.warmup;
+      a.warmup = true;
+      a.timer += this.c.events.longWarmup.extraSeconds;
+      this.say(a, this.line('warmup.start', d.start), 2.4);
+      this.sayLater(a, this.line('warmup.still', d.still), 7, 2.4);
+      this.sayLater(a, this.line('warmup.still', d.still), 14, 2.4);
+      recordMoment(this.chronicle, a.npcId, 'longWarmup', { zone: st.zone, detail: '135', witnesses: this.witnesses(a) });
+    }
   }
 
   private completeSet(a: Agent): void {
     const item = a.routine[a.index];
     a.setsDone += 1;
+    a.warmup = false;
     if (a.setsDone < item.sets) {
       const npc = this.save.members[a.npcId];
       npc.stats.restSeconds += item.restSeconds;
@@ -689,23 +783,38 @@ export class SimEngine {
     const pr = progressSession(this.c, npc, item.exerciseId, this.rng);
     if (pr) {
       this.notePr(npc, pr.lift, pr.weight);
-      this.say(a, this.rng.pick(this.c.dialogue.pr.lifter), 2.8);
+      this.say(a, this.line('pr.lifter', this.c.dialogue.pr.lifter), 2.8);
       a.anim = 'celebrate'; a.react = 2;
       const witnesses: string[] = [];
       for (const other of this.agentsNear(a.pos, this.c.events.prReaction.radius, a.npcId)) {
         if (other.state === 'interacting') continue;
         witnesses.push(other.npcId);
         const r = this.rng.next();
-        if (r < this.c.events.prReaction.clap) { this.say(other, this.rng.pick(this.c.dialogue.pr.clap)); other.anim = 'clap'; other.react = 1.6; }
-        else if (r < this.c.events.prReaction.clap + this.c.events.prReaction.pretend) this.say(other, this.rng.pick(this.c.dialogue.pr.pretend), 2.4);
+        if (this.save.members[other.npcId]?.familiarity[a.npcId]?.rival) {
+          // rivals never clap
+          this.say(other, this.line('rival.pr', this.c.dialogue.rival.pr), 2.4); other.anim = 'doubleTake'; other.react = 1.4;
+        } else if (r < this.c.events.prReaction.clap) { this.say(other, this.line('pr.clap', this.c.dialogue.pr.clap)); other.anim = 'clap'; other.react = 1.6; }
+        else if (r < this.c.events.prReaction.clap + this.c.events.prReaction.pretend) { this.say(other, this.line('pr.pretend', this.c.dialogue.pr.pretend), 2.4); other.anim = 'pretend'; other.react = 2; }
       }
       recordMoment(this.chronicle, a.npcId, 'pr', { zone, witnesses, detail: `${LIFT_LABEL[pr.lift]} ${pr.weight}` });
+    }
+    if (st && item.exerciseId === 'deadlift' && (npc.weights.deadlift ?? 0) >= 225 && this.rng.chance(this.c.events.heavyDrop.chance)) {
+      // a heavy drop from the top: the whole room jumps
+      const w = Math.round(npc.weights.deadlift / 5) * 5;
+      this.say(a, this.line('heavyDrop.boom', this.c.dialogue.heavyDrop.boom), 1.8);
+      let n = 0;
+      for (const o of this.agentsNear(a.pos, 9, a.npcId)) {
+        if (o.interactionId || o.state === 'lifting') continue;
+        o.anim = 'doubleTake'; o.react = 1.3;
+        if (n++ < 2) this.sayLater(o, this.line('heavyDrop.react', this.c.dialogue.heavyDrop.react), 0.3);
+      }
+      recordMoment(this.chronicle, a.npcId, 'heavyDrop', { zone: st.zone, detail: `${w} lb`, witnesses: this.witnesses(a) });
     }
     if (st) {
       const ex = this.c.exerciseById[item.exerciseId];
       if (ex.weight && this.rng.chance(this.c.events.noRerack.perTrigger * this.mod(npc, 'noRerack'))) {
         st.unracked = this.c.events.noRerack.plateSeconds;
-        this.say(a, this.rng.pick(this.c.dialogue.noRerack));
+        this.say(a, this.line('noRerack', this.c.dialogue.noRerack));
         recordMoment(this.chronicle, a.npcId, 'noRerack', { zone, witnesses: this.witnesses(a) });
       }
       st.occupant = null;
@@ -714,7 +823,17 @@ export class SimEngine {
     a.lastStationId = a.stationId;
     a.stationId = null;
     a.index += 1;
+    a.rackCurl = false; a.phoneUsed = false; a.onCall = false; a.workInAsked = false;
     if (!this.startBreak(a, st)) this.enter(a, 'choosing');
+  }
+
+  /** Regulars greet each other by name when they come out of the locker room. */
+  private greetFriends(a: Agent): void {
+    const d = this.c.dialogue.greet;
+    const friend = this.agentsNear(a.pos, 9, a.npcId).find((o) => !o.interactionId && !o.bubble && this.knows(a.npcId, o.npcId, 3));
+    if (!friend) return;
+    this.say(a, this.line('greet.hello', d.hello, { you: this.firstName(friend.npcId) }), 2.2);
+    this.sayLater(friend, this.line('greet.reply', d.reply, { you: this.firstName(a.npcId) }), 1.1);
   }
 
   /** Between exercises: maybe a sip at the cooler, a mirror check, chalk before a heavy lift, or a phone scroll. */
@@ -762,7 +881,7 @@ export class SimEngine {
 
   private startSearch(a: Agent): void {
     a.paused = { state: 'resting', timer: a.timer };
-    this.say(a, this.rng.pick(this.c.dialogue.lostBottle.start), 2.4);
+    this.say(a, this.line('lostBottle.start', this.c.dialogue.lostBottle.start), 2.4);
     const pts = this.rng.shuffle(this.c.layout.wanderPoints).slice(0, 2).map((p) => this.nav.nearestFree(p));
     const st = this.station(a.stationId);
     const path: Vec2[] = [];
@@ -820,7 +939,11 @@ export class SimEngine {
       }
       if (this.rng.chance(ev.conversation.perSecond * this.mod(npc, 'conversation'))) {
         const cands = near(ev.conversation.radius);
-        if (cands.length) { this.startTalk(a, this.rng.pick(cands), 'conversation'); continue; }
+        if (cands.length) {
+          const partner = this.rng.weighted(cands, (o) => 1 + Math.min(6, npc.familiarity[o.npcId]?.score ?? 0));
+          this.startTalk(a, partner, 'conversation');
+          continue;
+        }
       }
     }
   }
@@ -866,10 +989,33 @@ export class SimEngine {
     b.facing = Math.atan2(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
     a.anim = 'talk'; b.anim = 'talk';
     const d = this.c.dialogue;
-    if (type === 'conversation') it.lines = this.rng.pick(d.conversations).map((text, i) => ({ who: i % 2, text }));
-    else {
-      const [open, reply] = this.rng.pick(d.flirt);
-      it.lines = [{ who: 0, text: open }, { who: 1, text: reply }, { who: 0, text: this.rng.pick(d.flirtExit) }];
+    // what each side can say: names only once they know each other, their own exercise, their rival, the other's title
+    const vars = (me: Agent, you: Agent): LineVars => {
+      const ft = featuredTitle(this.c, this.save, you.npcId);
+      const rival = this.rivalOf(me.npcId);
+      return {
+        me: this.firstName(me.npcId), you: this.knows(me.npcId, you.npcId) ? this.firstName(you.npcId) : undefined,
+        exercise: this.exerciseName(me), rival: rival ? this.firstName(rival) : undefined,
+        title: ft ? titleLabel(this.c, ft) : undefined,
+      };
+    };
+    const va = vars(a, b), vb = vars(b, a);
+    if (type === 'conversation') {
+      const pool = d.conversations;
+      const fits = (i: number) => pool[i].every((t, k) => canFill(t, k % 2 ? vb : va));
+      const contextual = (i: number) => pool[i].some((t) => /\{(you|exercise|rival|title)\}/.test(t));
+      // when there's something personal to talk about, prefer it, but never at the cost of repeating a line early
+      const uses = this.lineUses.get('conversations');
+      const least = Math.min(...pool.map((_, k) => (fits(k) ? uses?.[k] ?? 0 : Infinity)));
+      const fresh = (k: number) => fits(k) && (uses?.[k] ?? 0) === least;
+      let i = this.rng.chance(0.75) ? this.pickIndex('conversations', pool.length, (k) => fresh(k) && contextual(k)) : -1;
+      if (i < 0) i = this.pickIndex('conversations', pool.length, fits);
+      it.lines = (i < 0 ? pool[0] : pool[i]).map((text, k) => ({ who: k % 2, text: fillLine(text, k % 2 ? vb : va) }));
+    } else {
+      const i = this.pickIndex('flirt', d.flirt.length);
+      const [open, reply] = d.flirt[Math.max(0, i)];
+      it.lines = [{ who: 0, text: open }, { who: 1, text: reply }, { who: 0, text: this.line('flirtExit', d.flirtExit) }];
+      it.data.flirt = true;
     }
     it.timer = 0.2;
   }
@@ -879,7 +1025,7 @@ export class SimEngine {
     this.pause(a, it); this.pause(b, it);
     const spots = this.c.layout.mirrorSpots;
     const i = this.rng.int(0, spots.length - 2);
-    this.say(a, this.rng.pick(this.c.dialogue.flexOff.start));
+    this.say(a, this.line('flexOff.start', this.c.dialogue.flexOff.start));
     this.goTo(a, spots[i], 'interacting');
     this.goTo(b, spots[i + 1], 'interacting');
     a.interactionId = it.id; b.interactionId = it.id;
@@ -895,7 +1041,7 @@ export class SimEngine {
     const it = this.newInteraction('spot', [lifter.npcId, spotter.npcId]);
     it.data.setsDone = lifter.setsDone;
     this.pause(spotter, it);
-    this.say(lifter, this.rng.pick(this.c.dialogue.spot.ask));
+    this.say(lifter, this.line('spot.ask', this.c.dialogue.spot.ask));
     // bench: behind the lifter's head; squat rack: right behind the lifter, inside the rack
     const spotAt = st.type === 'bench' ? stationLocal(st, 0, -1.0) : stationLocal(st, 0, 0.45);
     it.data.stationId = st.id;
@@ -916,7 +1062,9 @@ export class SimEngine {
         if (it.timer > 0) return;
         if (it.lineIndex < it.lines.length) {
           const line = it.lines[it.lineIndex++];
-          this.say(line.who === 0 ? a : b, line.text, this.c.events.conversation.lineSeconds + 0.4);
+          const speaker = line.who === 0 ? a : b;
+          this.say(speaker, line.text, this.c.events.conversation.lineSeconds + 0.4);
+          if (it.type === 'flirt' && it.lineIndex === it.lines.length) speaker.anim = 'dramatic';
           it.timer = this.c.events.conversation.lineSeconds;
           return;
         }
@@ -950,16 +1098,17 @@ export class SimEngine {
           const witnesses = this.witnesses(a).filter((w) => w !== b.npcId);
           if (outcome === 'winner') {
             const [w, l] = this.rng.chance(0.5) ? [a, b] : [b, a];
-            this.say(w, this.rng.pick(d.flexOff.winner), 2.6); w.anim = 'celebrate';
-            this.say(l, this.rng.pick(d.flexOff.loser), 2.6); l.anim = 'idle';
+            this.say(w, this.line('flexOff.winner', d.flexOff.winner), 2.6); w.anim = 'celebrate';
+            this.say(l, this.line('flexOff.loser', d.flexOff.loser), 2.6); l.anim = 'idle';
             recordMoment(this.chronicle, w.npcId, 'flexOffWin', { zone, otherId: l.npcId, witnesses });
             recordMoment(this.chronicle, l.npcId, 'flexOffLoss', { zone, otherId: w.npcId, witnesses, silent: true });
           } else {
-            const lines = outcome === 'mutual' ? d.flexOff.mutual : outcome === 'bothWon' ? d.flexOff.bothWon : ['...', '...'];
+            const pairs = outcome === 'mutual' ? d.flexOff.mutual : outcome === 'bothWon' ? d.flexOff.bothWon : [['...', '...']];
+            const lines = pairs[Math.max(0, outcome === 'laugh' ? 0 : this.pickIndex(`flexOff.${outcome}`, pairs.length))];
             this.say(a, lines[0], 2.6); this.say(b, lines[1], 2.6);
             if (outcome === 'laugh') {
               const near = this.agentsNear(a.pos, 8).filter((o) => o !== a && o !== b);
-              if (near.length) this.say(this.rng.pick(near), this.rng.pick(d.flexOff.laugh), 2.4);
+              if (near.length) this.say(this.rng.pick(near), this.line('flexOff.laugh', d.flexOff.laugh), 2.4);
             }
             recordMoment(this.chronicle, a.npcId, 'flexOffDraw', { zone, otherId: b.npcId, witnesses });
           }
@@ -982,12 +1131,14 @@ export class SimEngine {
           if (!finished) return;
           const over = this.rng.weightedKey(this.c.events.spot.outcomes) === 'overenthusiastic';
           if (over) {
-            this.say(spotter, this.rng.pick(d.spot.overenthusiastic), 2.4);
-            it.data.reply = this.rng.pick(d.spot.overReply);
+            this.say(spotter, this.line('spot.overenthusiastic', d.spot.overenthusiastic), 2.4);
+            spotter.anim = 'hype';
+            it.data.reply = this.line('spot.overReply', d.spot.overReply);
             recordMoment(this.chronicle, spotter.npcId, 'overSpot', { zone: this.zoneAt(a.pos), otherId: a.npcId, witnesses: this.witnesses(a) });
           } else {
             this.say(spotter, d.spot.success[0], 2);
             this.say(a, d.spot.success[1], 2);
+            spotter.anim = 'fistBump'; a.anim = 'fistBump'; a.react = 1.2;
             recordMoment(this.chronicle, spotter.npcId, 'spot', { zone: this.zoneAt(a.pos), otherId: a.npcId, witnesses: this.witnesses(a) });
           }
           this.familiarity(a.npcId, spotter.npcId, 1);
@@ -1067,7 +1218,7 @@ export class SimEngine {
   private startJob(kind: CrewJob['kind'], st: Station, requestedBy: string | null): void {
     const f = this.c.layout.footprints[st.type];
     const targets = [0, 1, 2].map((i) => stationLocal(st, (i - 1) * 0.65, f.z1 + 0.45));
-    this.startCrew(kind, st.id, targets, requestedBy, this.rng.pick(this.c.dialogue.crew[kind === 'build' ? 'arrive' : 'remove']));
+    this.startCrew(kind, st.id, targets, requestedBy, kind === 'build' ? this.line('crew.arrive', this.c.dialogue.crew.arrive) : this.line('crew.remove', this.c.dialogue.crew.remove));
     if (kind === 'remove') st.building = true;
   }
 
@@ -1080,7 +1231,13 @@ export class SimEngine {
       return { id: `c${this.save.seq}-${i}`, slot: i, pos: start, facing: Math.PI, path: this.plan(start, target), anim: 'walk', bubble: null };
     });
     crew[0].bubble = { text: line, ttl: 2.5 };
-    this.jobs.push({ id: `job${this.save.seq}`, kind, stationId, stage: 'arriving', timer: 0, crew, requestedBy, gag: null });
+    const job: CrewJob = { id: `job${this.save.seq}`, kind, stationId, stage: 'arriving', timer: 0, crew, requestedBy, gag: null };
+    if (kind === 'build' || kind === 'podium') {
+      crew[1].carry = 'plank';
+      crew[1].carryRot = 0;
+      job.plankGag = this.rng.chance(this.c.events.construction.plankGagChance);
+    }
+    this.jobs.push(job);
     this.version++;
   }
 
@@ -1093,8 +1250,26 @@ export class SimEngine {
       switch (job.stage) {
         case 'arriving': {
           let done = true;
-          for (const m of job.crew) if (!this.moveCrew(m, h)) done = false;
+          for (const m of job.crew) {
+            if (m.stuck !== undefined && m.stuck > 0) {
+              // carrying a plank sideways through the entrance: stuck until it's pivoted
+              const before = m.stuck;
+              m.stuck -= h;
+              const script = d.plank[job.plankLine ?? 0];
+              for (const [t, i] of [[2.4, 0], [1.6, 1], [0.8, 2]] as const) if (before > t && m.stuck <= t) this.crewSay(job.crew[i % job.crew.length], script[i], 1.4);
+              m.carryRot = Math.min(Math.PI / 2, (1 - Math.max(0, m.stuck) / 2.6) * Math.PI / 2);
+              done = false;
+              continue;
+            }
+            if (m.carry === 'plank' && job.plankGag && !m.pivoted && m.pos.z < this.c.layout.bounds.z1 - 0.6) {
+              m.stuck = 2.6; m.pivoted = true; done = false;
+              job.plankLine = Math.max(0, this.pickIndex('crew.plank', d.plank.length));
+              continue;
+            }
+            if (!this.moveCrew(m, h)) done = false;
+          }
           if (!done) break;
+          for (const m of job.crew) m.carry = null;
           job.stage = 'working';
           const focus = st?.pos ?? (job.kind === 'podium' || job.kind === 'podiumRemove' ? this.c.layout.podium : null);
           if (focus) for (const m of job.crew) m.facing = Math.atan2(focus.x - m.pos.x, focus.z - m.pos.z);
@@ -1102,21 +1277,23 @@ export class SimEngine {
           if (job.kind === 'podium' && this.ceremony && this.rng.chance(this.c.events.construction.gagChance)) {
             job.gag = 'backwards';
             this.ceremony.podiumRot = Math.PI;
-            this.crewSay(job.crew[1], d.backwards[0]);
+            job.gagLine = this.pickIndex('crew.backwards', d.backwards.length);
+            this.crewSay(job.crew[1], d.backwards[job.gagLine][0]);
           }
           for (const m of job.crew) m.anim = 'build';
           if (job.kind === 'build' && st && this.rng.chance(this.c.events.construction.gagChance)) {
-            job.gag = this.rng.chance(0.5) ? 'backwards' : 'drop';
-            if (job.gag === 'backwards') { st.rot += Math.PI; this.crewSay(job.crew[1], d.backwards[0]); }
-            else this.crewSay(job.crew[2], this.rng.pick(d.drop));
+            // gags take turns, so the same one doesn't run three times in a row
+            job.gag = this.pickIndex('crew.gag', 2) === 0 ? 'backwards' : 'drop';
+            if (job.gag === 'backwards') { st.rot += Math.PI; job.gagLine = this.pickIndex('crew.backwards', d.backwards.length); this.crewSay(job.crew[1], d.backwards[job.gagLine][0]); }
+            else this.crewSay(job.crew[2], this.line('crew.drop', d.drop));
           }
           break;
         }
         case 'working': {
           const before = job.timer;
           job.timer -= h;
-          if (job.gag === 'backwards' && st && before > 3 && job.timer <= 3) { st.rot -= Math.PI; this.crewSay(job.crew[0], d.backwards[1]); }
-          if (job.gag === 'backwards' && job.kind === 'podium' && this.ceremony && before > 3 && job.timer <= 3) { this.ceremony.podiumRot = 0; this.crewSay(job.crew[0], d.backwards[1]); }
+          if (job.gag === 'backwards' && st && before > 3 && job.timer <= 3) { st.rot -= Math.PI; this.crewSay(job.crew[0], d.backwards[job.gagLine ?? 0][1]); }
+          if (job.gag === 'backwards' && job.kind === 'podium' && this.ceremony && before > 3 && job.timer <= 3) { this.ceremony.podiumRot = 0; this.crewSay(job.crew[0], d.backwards[job.gagLine ?? 0][1]); }
           if (job.timer > 0) break;
           if (job.kind === 'podium') {
             job.stage = 'celebrating';
@@ -1139,11 +1316,19 @@ export class SimEngine {
             job.stage = 'celebrating';
             job.timer = 2;
             for (const m of job.crew) { m.anim = 'celebrate'; }
-            this.crewSay(job.crew[this.rng.int(0, 2)], this.rng.pick(d.celebrate));
+            this.crewSay(job.crew[this.rng.int(0, 2)], this.line('crew.celebrate', d.celebrate));
+            if (this.rng.chance(this.c.events.construction.longCelebrateChance)) {
+              // celebrating a little too long
+              job.timer = 5.5;
+              job.longCelebrate = true;
+              this.crewSay(job.crew[1], this.line('crew.celebrateLong', d.celebrateLong), 2.6);
+              const req = job.requestedBy ? this.agents.get(job.requestedBy) : undefined;
+              if (req) this.sayLater(req, '...can I use it now?', 3.2);
+            }
             const fav = this.save.titles.find((t) => t.titleId === 'crewFavourite' && t.current);
             if (fav && this.agents.has(fav.holderId)) {
               const npc = this.save.members[fav.holderId];
-              this.crewSay(job.crew[0], this.rng.pick(d.wave).replace('{name}', npc.firstName), 2.8);
+              this.crewSay(job.crew[0], this.line('crew.wave', d.wave, { name: npc.firstName }), 2.8);
             }
             const req = job.requestedBy && this.agents.get(job.requestedBy);
             if (req && st.reservedBy === job.requestedBy) {
@@ -1156,10 +1341,13 @@ export class SimEngine {
           }
           break;
         }
-        case 'celebrating':
+        case 'celebrating': {
+          const before = job.timer;
           job.timer -= h;
+          if (job.longCelebrate && before > 2.8 && job.timer <= 2.8) this.crewSay(job.crew[2], this.line('crew.celebrateLong', d.celebrateLong), 2.6);
           if (job.timer <= 0) this.beginLeaving(job);
           break;
+        }
         case 'leaving': {
           let done = true;
           for (const m of job.crew) if (!this.moveCrew(m, h)) done = false;
@@ -1219,8 +1407,9 @@ export class SimEngine {
     this.ceremony = { year, day: this.save.day, stage: 'waiting', timer: 0, winners, called: [], onStage: [], interactionId: null, podiumUp: false, podiumRot: 0 };
   }
 
-  private interruptible(a: Agent): boolean {
-    return !a.interactionId && (a.state === 'resting' || a.state === 'break' || a.state === 'waiting' || a.state === 'choosing');
+  private interruptible(a: Agent, winner = false): boolean {
+    // winners are fetched mid-set too (they finish it after the ceremony); the crowd only joins between sets
+    return !a.interactionId && (a.state === 'resting' || a.state === 'break' || a.state === 'waiting' || a.state === 'choosing' || (winner && a.state === 'lifting'));
   }
 
   private updateCeremony(h: number): void {
@@ -1255,7 +1444,7 @@ export class SimEngine {
         cer.timer -= h;
         for (const w of cer.winners) {
           const a = this.agents.get(w.npcId);
-          if (!a || cer.called.includes(a.npcId) || !this.interruptible(a)) continue;
+          if (!a || cer.called.includes(a.npcId) || !this.interruptible(a, true)) continue;
           const spot = this.podiumSpot(w.place);
           callIn(a, spot.pos, spot.h > 0);
           this.say(a, "Oh! That's me!", 2);
@@ -1271,7 +1460,9 @@ export class SimEngine {
         const present = cer.winners.filter((w) => this.agents.has(w.npcId));
         const winnersUp = present.filter((w) => cer.called.includes(w.npcId) && arrived(w.npcId));
         const everyoneHere = present.length > 0 && winnersUp.length === present.length;
-        if (everyoneHere || (cer.timer <= 0 && (winnersUp.length > 0 || cer.timer <= -20))) this.startPosing(cer, winnersUp.map((w) => w.npcId));
+        // give the crowd a few seconds to wander over before the first pose
+        const gathered = cfg.gatherSeconds - cer.timer >= cfg.minGatherSeconds;
+        if ((everyoneHere && gathered) || (cer.timer <= 0 && (winnersUp.length > 0 || cer.timer <= -20))) this.startPosing(cer, winnersUp.map((w) => w.npcId));
         return;
       }
       case 'posing':
@@ -1335,11 +1526,33 @@ export class SimEngine {
     if (inter) this.endInteraction(inter);
     cer.interactionId = null;
     const p = this.c.layout.podium;
-    this.startCrew('podiumRemove', '', [{ x: p.x + 0.95, z: p.z - 0.9 }, { x: p.x + 0.95, z: p.z }, { x: p.x + 0.95, z: p.z + 0.9 }], null, this.rng.pick(this.c.dialogue.crew.remove));
+    this.startCrew('podiumRemove', '', [{ x: p.x + 0.95, z: p.z - 0.9 }, { x: p.x + 0.95, z: p.z }, { x: p.x + 0.95, z: p.z + 0.9 }], null, this.line('crew.remove', this.c.dialogue.crew.remove));
+  }
+
+  /** Rivals in the same part of the gym keep an eye on each other. */
+  private rollRivalGlances(): void {
+    const ev = this.c.events.rivals;
+    const d = this.c.dialogue.rival;
+    for (const a of this.agents.values()) {
+      if (a.interactionId || a.react > 0 || !(a.state === 'resting' || a.state === 'break' || a.state === 'waiting')) continue;
+      const npc = this.save.members[a.npcId];
+      for (const b of this.agentsNear(a.pos, ev.glanceRadius, a.npcId)) {
+        if (!npc.familiarity[b.npcId]?.rival || b.interactionId) continue;
+        const key = `rival|${[a.npcId, b.npcId].sort().join('|')}`;
+        if ((this.recognitionCooldown.get(key) ?? -Infinity) > this.simTime - ev.glanceCooldown) continue;
+        if (!this.rng.chance(ev.glancePerSecond)) continue;
+        this.recognitionCooldown.set(key, this.simTime);
+        a.facing = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
+        a.anim = 'doubleTake'; a.react = 1.5;
+        this.say(a, this.line('rival.glance', d.glance, { you: this.firstName(b.npcId) }), 2.2);
+        this.sayLater(b, this.line('rival.glanceReply', d.glanceReply, { you: this.firstName(a.npcId) }), 1.2);
+      }
+    }
   }
 
   /** Members near a title holder sometimes nod, do a double take, or copy the Mirror Champion's pose. */
   private rollRecognition(): void {
+    this.rollRivalGlances();
     const ev = this.c.events.recognition;
     const d = this.c.dialogue.recognition;
     for (const t of this.agents.values()) {
@@ -1358,14 +1571,58 @@ export class SimEngine {
         o.facing = Math.atan2(t.pos.x - o.pos.x, t.pos.z - o.pos.z);
         o.anim = kind === 'nod' ? 'nod' : kind === 'doubleTake' ? 'doubleTake' : 'flex';
         o.react = kind === 'imitate' ? 2.5 : 1.6;
-        this.say(o, this.rng.pick(d[kind]).replace('{name}', holder.firstName), 2.4);
+        this.say(o, this.line(`recognition.${kind}`, d[kind], { name: holder.firstName }), 2.4);
       }
     }
   }
 
   // ---------- Helpers ----------
 
-  say(a: Agent, text: string, ttl = 2.2): void { a.bubble = { text, ttl }; }
+  say(a: Agent, text: string, ttl = 2.2): void { if (text) a.bubble = { text, ttl }; }
+
+  /** Say something a moment from now (replies, punchlines). */
+  private sayLater(a: Agent, text: string, delay: number, ttl = 2.4): void {
+    if (text) this.pendingSays.push({ id: a.npcId, text, at: this.simTime + delay, ttl });
+  }
+
+  /** Index of the least-used entry in a pool (ties random), among entries `ok` allows. -1 if none. */
+  private pickIndex(cat: string, n: number, ok?: (i: number) => boolean): number {
+    let uses = this.lineUses.get(cat);
+    if (!uses || uses.length !== n) { uses = new Array<number>(n).fill(0); this.lineUses.set(cat, uses); }
+    let min = Infinity;
+    const cands: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (ok && !ok(i)) continue;
+      if (uses[i] < min) { min = uses[i]; cands.length = 0; }
+      if (uses[i] === min) cands.push(i);
+    }
+    if (!cands.length) return -1;
+    const i = this.rng.pick(cands);
+    uses[i]++;
+    if (HUMOUR.has(cat)) {
+      this.beats.push({ cat, key: `${cat}#${i}`, at: this.simTime });
+      if (this.beats.length > 500) this.beats.shift();
+    }
+    return i;
+  }
+
+  /** A line from a dialogue pool: least recently used first, so jokes don't repeat until the pool has cycled. */
+  line(cat: string, pool: readonly string[], v: LineVars = {}): string {
+    const i = this.pickIndex(cat, pool.length, (k) => canFill(pool[k], v));
+    return i < 0 ? '' : fillLine(pool[i], v);
+  }
+
+  private firstName(id: string): string | undefined { return this.save.members[id]?.firstName; }
+  private knows(a: string, b: string, min = 2): boolean { return (this.save.members[a]?.familiarity[b]?.score ?? 0) >= min; }
+  private rivalOf(id: string): string | undefined {
+    const f = this.save.members[id]?.familiarity ?? {};
+    const r = Object.entries(f).filter(([oid, x]) => x.rival && this.save.members[oid]).sort((p, q) => q[1].rivalry - p[1].rivalry)[0];
+    return r?.[0];
+  }
+  private exerciseName(a: Agent): string | undefined {
+    const ex = this.c.exerciseById[a.routine[a.index]?.exerciseId];
+    return ex ? ex.name.toLowerCase() : undefined;
+  }
 
   private pushFeed(item: Omit<FeedItem, 'id'>): void {
     if (this.quiet && item.kind !== 'ceremony') return;

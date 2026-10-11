@@ -252,6 +252,22 @@ Every simulated second, each **available** member (resting, more than 2.5 s of r
 | Lost bottle | 1.2% per rest | — | `searching` walk loop | `lostBottle` |
 | No rerack | 2% per weighted exercise | — | plates stay visibly loaded for 20 s | `noRerack` |
 
+**More humour (M4).** All tunable in `events.json`:
+
+| Beat | Trigger | What happens |
+|---|---|---|
+| Can I work in? | Queued >1.5 s at a station whose owner is resting | Ask (70%); "yes" (55%) and the owner cuts a set so the queue moves |
+| Curls in the squat rack | A curl with no free dumbbell spot and a free rack (60%) | Barbell curls in the rack; a witness reacts; `rackCurl` Moment |
+| Machine-hogger phone call | Resting on a bench or cable while someone queues for it (50%, once per exercise) | +9 s of rest on the phone; the queuer sighs; `phoneHog` Moment |
+| Heavy drop | Last deadlift set at 225 lb or more (50%) | *BOOM*; everyone within 9 units jumps; `heavyDrop` Moment |
+| Twenty-minute warm-up | First set of bench or squat (10%) | +20 s at 135 lb, "Still warming up."; `longWarmup` Moment |
+| Plank pivot | Crew carrying a plank (35% of builds) | Stuck at the entrance, three-line pivot script, plank rotates |
+| Long celebration | 30% of builds | 5.5 s of celebrating; "…can I use it now?" |
+
+**Dialogue.** `engine.line(category, pool, vars)` picks the least-used line in a pool whose placeholders it can fill (`{you}`, `{me}`, `{exercise}`, `{rival}`, `{title}`, `{name}`), so a joke only repeats once its pool has cycled. Members use each other's names only at familiarity 2+, and greet friends (3+) by name when they come out of the locker room. Humour categories are logged in `engine.beats`; a test checks that a 10-minute watch of an established gym has at least 8 distinct beats and no line more than twice.
+
+**Rivals.** Rivals choose a free station next to their rival (60%), side-eye each other when within 7 units (4%/s, once per 90 s per pair), and react to each other's PRs with "Hmph." instead of clapping.
+
 **Interaction framework.** An `Interaction` has `participants`, `stage`, `timer` and `lines`. Starting one calls `pause(agent)` (saving the state and remaining timer); ending it calls `resume(agent)`, which walks the member back to their station if needed and restores the exact rest timer. Adding a new interaction type means one start function and one case in `updateInteraction()`.
 
 **Familiarity and rivalry.** Each conversation adds 1 to familiarity (a flirt adds 0.5). Each Flex-Off adds 1 to `rivalry`, and at 3 the pair become **rivals**, making Flex-Offs between them 4× more likely. This is the hook for future rivalry storylines (M5).

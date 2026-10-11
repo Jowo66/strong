@@ -8,9 +8,9 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M1 | Living gym core | ✅ Done (placeholder art) |
 | M2 | Diorama look | ✅ Done (code-built art; glTF swap optional) |
 | M3 | Movement and behaviour polish | ✅ Done |
-| M4 | Social and humour depth | ⬜ Next |
+| M4 | Social and humour depth | ✅ Done |
 | M5 | Gym Legends: full presentation | ✅ Done |
-| M6 | The player | 🟨 Aura done |
+| M6 | The player | 🟨 Next (aura done) |
 | M7 | Music and sound | 🟨 Spotify done |
 | M8 | Accessibility, performance, launch | 🟨 Basics done |
 
@@ -70,7 +70,10 @@ Shipped: nav grid + A* + string-pulling + separation steering (`sim/nav.ts`); ap
 
 **Acceptance:** over a full simulated day, no member passes through a station footprint; no member waits more than 30 s without either a crew build or a skip.
 
-## M4 — Social and humour depth
+## M4 — Social and humour depth ✅
+
+Shipped: 40 conversations (some use names, the speaker's exercise, their rival or the listener's title, and names only once people know each other), 15 flirts, bigger pools everywhere, and least-recently-used line picking so jokes don't repeat until a pool has cycled. Conversations prefer familiar members; regulars greet each other by name. Rivals train next to each other, side-eye each other and never clap for each other's PRs. New events: "Can I work in?", curls in the squat rack, the machine-hogger phone call, the heavy drop that makes the room jump, the 135 lb warm-up that takes twenty minutes. Crew gags: the plank carried sideways that has to pivot, the over-long celebration, and backwards builds with several scripts. Acceptance is an automated test on an established gym (three seeds; eight more checked by hand: 12–16 distinct beats, no line more than twice).
+
 
 - Dialogue ×3 (about 40 conversations, 15 flirts, more crew lines); lines can use names and context (current exercise, rival's name, title)
 - Conversations prefer familiar members; regulars greet each other by name

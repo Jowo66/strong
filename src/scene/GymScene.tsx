@@ -26,11 +26,12 @@ function memberSource(eng: SimEngine, id: string): () => AvatarSource | undefine
     out.pos = a.pos; out.facing = a.facing; out.anim = a.anim; out.bubble = a.bubble; out.outfit = a.outfit; out.aura = a.aura;
     const item = a.routine[a.index];
     const lifting = a.state === 'lifting' || (a.state === 'interacting' && a.paused?.state === 'lifting');
-    out.exercise = item && (lifting || a.anim === 'lift' || a.anim === 'cardio' || a.anim === 'stretch') ? item.exerciseId : undefined;
+    out.exercise = item && (lifting || a.anim === 'lift' || a.anim === 'cardio' || a.anim === 'stretch') ? (a.rackCurl ? 'rack_curl' : item.exerciseId) : undefined;
     out.resting = a.state === 'resting';
     const st = a.stationId ? eng.stations.find((s) => s.id === a.stationId) : undefined;
     out.stationType = st?.type;
-    out.weight = out.exercise ? Math.round((eng.save.members[id]?.weights[out.exercise] ?? 0) / 5) * 5 : undefined;
+    const npc = eng.save.members[id];
+    out.weight = !out.exercise ? undefined : a.warmup ? 135 : out.exercise === 'rack_curl' ? Math.round(((npc?.weights.db_curl ?? 20) * 2) / 5) * 5 + 45 : Math.round((npc?.weights[out.exercise] ?? 0) / 5) * 5;
     out.y = a.elev ?? 0;
     out.banner = a.banner ?? null;
     return out;
@@ -85,7 +86,7 @@ function Crew() {
   const eng = useEngine();
   useEngineVersion();
   const find = (id: string): AvatarSource | undefined => {
-    for (const j of eng.jobs) for (const m of j.crew) if (m.id === id) return { pos: m.pos, facing: m.facing, anim: m.anim, bubble: m.bubble, outfit: 'gym' };
+    for (const j of eng.jobs) for (const m of j.crew) if (m.id === id) return { pos: m.pos, facing: m.facing, anim: m.anim, bubble: m.bubble, outfit: 'gym', carry: m.carry, carryRot: m.carryRot };
     return undefined;
   };
   return (

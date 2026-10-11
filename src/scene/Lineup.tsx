@@ -42,7 +42,7 @@ export function Lineup({ engine }: { engine: SimEngine }) {
           return <Avatar key={npc.id} id={npc.id} look={lookForNpc(npc)} source={() => src} hoverable={false} />;
         })}
         {[0, 1, 2].map((slot) => {
-          const src: AvatarSource = { pos: { x: 10 + slot * 1.6, z: -3 }, facing: 0.3, anim: slot === 1 ? 'build' : 'idle', bubble: null, outfit: 'gym' };
+          const src: AvatarSource = { pos: { x: 10 + slot * 1.6, z: -3 }, facing: 0.3, anim: slot === 1 ? 'build' : slot === 2 ? 'walk' : 'idle', bubble: null, outfit: 'gym', carry: slot === 2 ? 'plank' : null, carryRot: 0 };
           return <Avatar key={`crew${slot}`} id={`crew${slot}`} look={lookForCrew(slot)} source={() => src} hoverable={false} />;
         })}
         <OrbitControls makeDefault target={[0, 0.8, 0]} />

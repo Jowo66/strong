@@ -1,61 +1,38 @@
 {
   "_notes": "Base chances. 'perSecond' events are rolled once per sim second per eligible member; others are rolled once per trigger.",
-  "conversation": {
-    "perSecond": 0.012,
-    "radius": 4.0,
-    "lineSeconds": 1.8
-  },
-  "flirt": {
-    "perSecond": 0.0025,
-    "radius": 5.0,
-    "lineSeconds": 1.8
-  },
+  "conversation": { "perSecond": 0.015, "radius": 4.0, "lineSeconds": 1.8 },
+  "flirt": { "perSecond": 0.0035, "radius": 5.0, "lineSeconds": 1.8 },
   "flexOff": {
-    "perSecond": 0.004,
+    "perSecond": 0.005,
     "radius": 7.0,
     "poseSeconds": 5.0,
     "rivalBonus": 4.0,
     "rivalryThreshold": 3,
-    "outcomes": {
-      "winner": 0.45,
-      "mutual": 0.25,
-      "bothWon": 0.2,
-      "laugh": 0.1
-    }
+    "outcomes": { "winner": 0.45, "mutual": 0.25, "bothWon": 0.2, "laugh": 0.1 }
   },
   "spot": {
     "perTrigger": 0.1,
     "radius": 6.0,
-    "outcomes": {
-      "success": 0.65,
-      "overenthusiastic": 0.35
-    }
+    "outcomes": { "success": 0.65, "overenthusiastic": 0.35 }
   },
-  "photoOp": {
-    "perTrigger": 0.04
+  "photoOp": { "perTrigger": 0.07 },
+  "lostBottle": { "perTrigger": 0.016 },
+  "noRerack": { "perTrigger": 0.02, "plateSeconds": 20 },
+  "grunt": { "perTrigger": 0.5 },
+  "prReaction": { "radius": 7.0, "clap": 0.4, "pretend": 0.25 },
+  "construction": { "maxTemporaryPerType": 2, "waitBeforeSkip": 30, "buildSeconds": 6, "removeAfterIdle": 45, "gagChance": 0.5, "plankGagChance": 0.35, "longCelebrateChance": 0.3 },
+  "rivals": {
+    "_notes": "Rivals choose stations next to each other, side-eye each other when close, and never clap for each other's PRs.",
+    "neighbourChance": 0.6,
+    "glancePerSecond": 0.04,
+    "glanceRadius": 7.0,
+    "glanceCooldown": 90
   },
-  "lostBottle": {
-    "perTrigger": 0.012
-  },
-  "noRerack": {
-    "perTrigger": 0.02,
-    "plateSeconds": 20
-  },
-  "grunt": {
-    "perTrigger": 0.5
-  },
-  "prReaction": {
-    "radius": 7.0,
-    "clap": 0.4,
-    "pretend": 0.25
-  },
-  "construction": {
-    "maxTemporaryPerType": 2,
-    "waitBeforeSkip": 30,
-    "buildSeconds": 6,
-    "removeAfterIdle": 45,
-    "gagChance": 0.5
-  },
+  "workIn": { "askChance": 0.7, "yesChance": 0.55 },
+  "rackCurl": { "chance": 0.6 },
+  "phoneHog": { "chance": 0.5, "extraSeconds": 9 },
+  "heavyDrop": { "chance": 0.5 },
+  "longWarmup": { "chance": 0.1, "extraSeconds": 20 },
   "waitBeforeBuild": 3,
   "recognition": {
     "_notes": "Members near a title holder sometimes react: a nod, a double take, or (for the Mirror Champion) copying the pose. Rolled once per second per nearby pair; each pair at most once a minute.",
@@ -66,8 +43,12 @@
   },
   "ceremony": {
     "startAt": 0.12,
-    "winnersArrive": [0.04, 0.09],
+    "winnersArrive": [
+      0.04,
+      0.09
+    ],
     "gatherSeconds": 45,
+    "minGatherSeconds": 10,
     "poseSeconds": 7,
     "speechSeconds": 5,
     "crowd": 8
