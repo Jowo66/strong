@@ -6,9 +6,10 @@ import type {
   StationType, Vec2, ZoneId, Anim,
 } from './types';
 import { NavGrid, approachPoint, stationLocal } from './nav';
-import { footprint, inside } from './footprint';
+import { LIFT_KEYS } from './types';
+import { buildFootprint, footprint, inside } from './footprint';
 import { Rng } from './rng';
-import { createNpc, isRegular } from './npc';
+import { createNpc, isRegular, startingWeights } from './npc';
 import { generateRoutine } from './routine';
 import { progressSession } from './progression';
 import { awardAnnual, ensureYear, evaluateTitles, featuredTitle, titleLabel } from './legends';
@@ -73,6 +74,12 @@ export const HUMOUR = new Set([
   'rival.glance', 'rival.pr', 'workIn.ask', 'rackCurl.react', 'phoneHog.talk', 'heavyDrop.boom', 'warmup.start',
   'recognition.imitate', 'recognition.doubleTake', 'greet.hello',
 ]);
+
+/** What the character creator can change about the player. */
+export interface PlayerPatch {
+  firstName?: string; lastName?: string; country?: string; gender?: Npc['gender'];
+  goal?: Npc['goal']; experience?: Npc['experience']; appearance?: Partial<Npc['appearance']>;
+}
 
 export interface AgentInfo {
   npcId: string; name: string; title: string | null; goal: string; exercise: string | null;
@@ -286,7 +293,7 @@ export class SimEngine {
     for (const [id, a] of this.agents) {
       if (a.bubble) { a.bubble.ttl -= h; if (a.bubble.ttl <= 0) a.bubble = null; }
       if (a.banner) { a.banner.ttl -= h; if (a.banner.ttl <= 0) a.banner = null; }
-      if (a.aura > 0) a.aura = Math.max(0, a.aura - h);
+      if (a.aura > 0) { a.aura = Math.max(0, a.aura - h); if (a.aura === 0) a.auraGold = false; }
       if (a.react > 0) { a.react -= h; if (a.react <= 0) a.anim = this.stateAnim(a); }
       if (a.state === 'gone') { this.agents.delete(id); removed = true; }
     }
@@ -296,7 +303,18 @@ export class SimEngine {
 
   // ---------- Days, schedule, arrivals ----------
 
+  /** One point per day for the player's progress chart. */
+  private recordPlayerHistory(): void {
+    const p = this.player;
+    if (!p) return;
+    const h = (this.save.playerHistory ??= []);
+    const r = (k: string) => Math.round((p.weights[k] ?? 0) / 5) * 5;
+    h.push({ day: this.save.day, date: isoForDay(this.save.createdAt, this.save.day), bench: r('bench_press'), squat: r('back_squat'), deadlift: r('deadlift'), visits: p.stats.visits });
+    if (h.length > 400) h.splice(0, h.length - 400);
+  }
+
   private advanceDay(): void {
+    this.recordPlayerHistory();
     const prevYear = yearForDay(this.save.createdAt, this.save.day);
     this.save.day += 1;
     this.closing = false;
@@ -318,7 +336,8 @@ export class SimEngine {
     const arr = this.c.population.arrival;
     this.schedule = [];
     for (const npc of Object.values(this.save.members)) {
-      if (this.agents.has(npc.id)) continue;
+      // still inside from yesterday (finishing up after closing): they can come back once they've left
+      if (this.agents.has(npc.id) && fromTime > 0) continue;
       let frac: number;
       const cer = this.ceremony;
       if (npc.isPlayer) frac = 0.02;
@@ -342,14 +361,21 @@ export class SimEngine {
     if (!this.closing && this.save.dayTime >= this.c.population.closingAt * L) {
       this.closing = true;
       this.schedule = [];
-      for (const a of this.agents.values()) a.routine = a.routine.slice(0, a.index + 1); // finish current exercise, then go home
+      for (const a of this.agents.values()) {
+        a.routine = a.routine.slice(0, a.index + 1); // finish current exercise, then go home
+        if (a.awaitingPick) { a.awaitingPick = false; this.finishVisit(a); }
+      }
       this.pushFeed({ day: this.save.day, kind: 'info', text: 'Closing time. The lights dim a little.' });
     }
+    let deferred = false;
     while (this.schedule.length && this.schedule[0].at <= this.save.dayTime && this.agents.size < this.settings.cap) {
-      const { npcId } = this.schedule.shift()!;
-      const npc = this.save.members[npcId];
-      if (npc && !this.agents.has(npcId)) this.spawn(npc);
+      const entry = this.schedule.shift()!;
+      const npc = this.save.members[entry.npcId];
+      if (!npc) continue;
+      if (this.agents.has(entry.npcId)) { this.schedule.push({ npcId: entry.npcId, at: this.save.dayTime + 5 }); deferred = true; continue; }
+      this.spawn(npc);
     }
+    if (deferred) this.schedule.sort((a, b) => a.at - b.at);
   }
 
   private registerVisit(npc: Npc, silent: boolean): void {
@@ -371,7 +397,7 @@ export class SimEngine {
     const L = this.c.layout;
     const a: Agent = {
       npcId: npc.id, state: 'walking', pos: { ...L.entrance }, facing: Math.PI, path: [], after: null, afterTimer: null,
-      timer: 0, routine: generateRoutine(this.c, npc, this.rng), index: 0, setsDone: 0, stationId: null, waitTime: 0,
+      timer: 0, routine: npc.isPlayer && this.save.playerMode === 'manual' ? [] : generateRoutine(this.c, npc, this.rng), index: 0, setsDone: 0, stationId: null, waitTime: 0,
       lockerSpot: this.freeLocker(), outfit: 'street', anim: 'walk', bubble: null, interactionId: null,
       paused: null, aura: 0, react: 0,
     };
@@ -528,6 +554,7 @@ export class SimEngine {
         if (a.timer <= 0) { a.outfit = 'street'; this.goTo(a, this.c.layout.entrance, 'gone'); }
         break;
       case 'break':
+        if (a.awaitingPick) break; // the player is deciding what to do next
         a.timer -= h;
         if (a.timer <= 0) { a.breakKind = null; this.enter(a, 'choosing'); }
         break;
@@ -631,7 +658,7 @@ export class SimEngine {
       case 'waiting': return 'Waiting for a station';
       case 'lifting': return `Set ${a.setsDone + 1}/${a.routine[a.index]?.sets ?? 1}`;
       case 'resting': return a.onCall ? 'On the phone (someone is waiting)' : 'Resting';
-      case 'break': return a.breakKind === 'water' ? 'Grabbing some water' : a.breakKind === 'mirror' ? 'Checking the mirror' : a.breakKind === 'chalk' ? 'Chalking up' : 'Scrolling on their phone';
+      case 'break': return a.awaitingPick ? 'Waiting for you to pick an exercise' : a.breakKind === 'water' ? 'Grabbing some water' : a.breakKind === 'mirror' ? 'Checking the mirror' : a.breakKind === 'chalk' ? 'Chalking up' : 'Scrolling on their phone';
       case 'searching': return 'Looking for water bottle';
       case 'interacting': {
         const it = a.interactionId ? this.interactions.get(a.interactionId) : undefined;
@@ -648,8 +675,25 @@ export class SimEngine {
   private isFree(s: Station): boolean { return !s.occupant && !s.reservedBy && !s.building; }
 
   private chooseStation(a: Agent): void {
-    if (a.index >= a.routine.length) { this.finishVisit(a); return; }
+    if (a.index >= a.routine.length) {
+      if (this.isManualPlayer(a) && !this.closing && !a.headingHome) { this.awaitPick(a); return; }
+      this.finishVisit(a);
+      return;
+    }
     const ex = this.c.exerciseById[a.routine[a.index].exerciseId];
+    // the player clicked a station: go there (queue at it if it's busy)
+    const pref = this.station(a.preferStation ?? null);
+    a.preferStation = null;
+    if (pref && pref.type === ex.station) {
+      if (this.isFree(pref)) {
+        pref.reservedBy = a.npcId; a.stationId = pref.id; a.setsDone = 0;
+        this.goTo(a, pref.pos, 'lifting', null, pref);
+      } else {
+        a.queueFor = pref.id;
+        this.goTo(a, this.queueSpot(pref, a), 'waiting');
+      }
+      return;
+    }
     const free = this.stations.filter((s) => s.type === ex.station && this.isFree(s));
     // the person who curls in the squat rack
     if (!free.length && (ex.id === 'db_curl' || ex.id === 'hammer_curl') && this.rng.chance(this.c.events.rackCurl.chance)) {
@@ -785,6 +829,13 @@ export class SimEngine {
       this.notePr(npc, pr.lift, pr.weight);
       this.say(a, this.line('pr.lifter', this.c.dialogue.pr.lifter), 2.8);
       a.anim = 'celebrate'; a.react = 2;
+      if (npc.isPlayer && this.rng.chance(this.c.aura.goldenPrChance)) {
+        // the rare golden PR: a gold aura no matter which colour you picked
+        a.aura = this.c.aura.durationSeconds;
+        a.auraGold = true;
+        this.say(a, '✨ GOLDEN PR ✨', 3);
+        recordMoment(this.chronicle, a.npcId, 'goldenPr', { zone, detail: `${LIFT_LABEL[pr.lift]} ${pr.weight}`, witnesses: this.witnesses(a) });
+      }
       const witnesses: string[] = [];
       for (const other of this.agentsNear(a.pos, this.c.events.prReaction.radius, a.npcId)) {
         if (other.state === 'interacting') continue;
@@ -863,7 +914,7 @@ export class SimEngine {
 
   private finishVisit(a: Agent): void {
     const npc = this.save.members[a.npcId];
-    if (npc.isPlayer && !this.closing) {
+    if (npc.isPlayer && !this.closing && !a.headingHome && this.save.playerMode !== 'manual') {
       a.routine = generateRoutine(this.c, npc, this.rng);
       a.index = 0;
       this.goTo(a, this.rng.pick(this.c.layout.wanderPoints), 'choosing');
@@ -1202,7 +1253,7 @@ export class SimEngine {
     const slot = (this.c.layout.tempSlots[type] ?? []).find((p) => !this.stations.some((s) => dist(s.pos, p) < 0.3));
     if (!slot) return;
     // don't build on top of someone
-    const fp = footprint(this.c, type, slot, 0);
+    const fp = buildFootprint(this.c, type, slot, 0);
     if ([...this.agents.values()].some((a) => inside(a.pos, fp, 0.3))) return;
     this.save.seq += 1;
     const st: Station = {
@@ -1313,6 +1364,7 @@ export class SimEngine {
           }
           if (job.kind === 'build' && st) {
             st.building = false;
+            this.refreshNav();
             job.stage = 'celebrating';
             job.timer = 2;
             for (const m of job.crew) { m.anim = 'celebrate'; }
@@ -1377,6 +1429,104 @@ export class SimEngine {
       if (s.occupant || s.reservedBy || s.building) { s.idle = 0; continue; }
       s.idle += h;
       if (s.idle > this.c.events.construction.removeAfterIdle && !this.jobs.some((j) => j.stationId === s.id)) this.startJob('remove', s, null);
+    }
+  }
+
+  // ---------- The player ----------
+
+  playerAgent(): Agent | undefined { const p = this.player; return p ? this.agents.get(p.id) : undefined; }
+  private isManualPlayer(a: Agent): boolean { return this.save.playerMode === 'manual' && !!this.save.members[a.npcId]?.isPlayer; }
+
+  private awaitPick(a: Agent): void {
+    a.awaitingPick = true;
+    a.breakKind = 'phone';
+    this.goTo(a, this.nav.nearestFree(a.lastStationId && this.station(a.lastStationId) ? approachPoint(this.c, this.station(a.lastStationId)!) : a.pos), 'break', 1e9);
+  }
+
+  /** Character creator: change the player's name, look, goal or level. A brand-new player also gets fresh starting weights. */
+  updatePlayer(patch: PlayerPatch): void {
+    const p = this.player;
+    if (!p) return;
+    const { appearance, ...rest } = patch;
+    Object.assign(p, rest);
+    if (appearance) p.appearance = { ...p.appearance, ...appearance };
+    if (patch.country) p.familyNameFirst = this.c.names.find((n) => n.code === patch.country)?.familyNameFirst ?? false;
+    if (p.stats.visits === 0 && (patch.experience || patch.gender)) {
+      p.start = startingWeights(this.c, p.experience, p.gender, this.rng);
+      p.weights = { ...p.start };
+      for (const k of LIFT_KEYS) p.best[k] = p.start[this.c.exercises.find((e) => e.lift === k)!.id];
+    }
+    for (const t of this.save.titles) if (t.holderId === p.id) t.holderName = fullName(p);
+    this.save.playerCreated = true;
+    this.version++;
+  }
+
+  setPlayerMode(mode: 'auto' | 'manual'): void {
+    this.save.playerMode = mode;
+    const a = this.playerAgent();
+    if (!a) return;
+    if (mode === 'auto' && a.awaitingPick) {
+      a.awaitingPick = false;
+      a.routine.push(...generateRoutine(this.c, this.player!, this.rng));
+      this.enter(a, 'choosing');
+    }
+  }
+
+  /** Queue an exercise for the player: next, or at the end of their list. */
+  playerQueue(exerciseId: string, where: 'next' | 'end' = 'next'): void {
+    const a = this.playerAgent();
+    const ex = this.c.exerciseById[exerciseId];
+    if (!a || !ex) return;
+    const npc = this.player!;
+    const goal = this.c.goalById[npc.goal];
+    const item = { exerciseId, sets: this.rng.int(goal.sets[0], goal.sets[1]), restSeconds: this.rng.range(goal.rest[0], goal.rest[1]), liftSeconds: this.rng.range(this.c.progression.liftSeconds[0], this.c.progression.liftSeconds[1]) };
+    if (ex.category === 'cardio') { item.sets = 1; item.liftSeconds = this.rng.range(18, 32); }
+    // not started yet (walking to it, queueing, or choosing): the new pick goes before it
+    const started = a.state === 'lifting' || a.state === 'resting' || (a.state === 'interacting' && (a.paused?.state === 'lifting' || a.paused?.state === 'resting'))
+      || (a.state === 'searching') || (a.stationId !== null && a.state === 'walking');
+    const at = where === 'end' ? a.routine.length : Math.min(a.routine.length, started ? a.index + 1 : a.index);
+    a.routine.splice(at, 0, item);
+    if (a.awaitingPick) { a.awaitingPick = false; a.breakKind = null; this.enter(a, 'choosing'); }
+  }
+
+  playerRemove(routineIndex: number): void {
+    const a = this.playerAgent();
+    if (!a || routineIndex <= a.index && (a.state === 'lifting' || a.state === 'resting')) return;
+    if (routineIndex < a.index || routineIndex >= a.routine.length) return;
+    a.routine.splice(routineIndex, 1);
+  }
+
+  /** Clicked a station: do an exercise there next (from the list if one fits, otherwise a good one for the goal). */
+  playerGoToStation(stationId: string): string | null {
+    const a = this.playerAgent();
+    const st = this.station(stationId);
+    if (!a || !st || st.building) return null;
+    const npc = this.player!;
+    const upcoming = a.routine.findIndex((r, i) => i > a.index - (a.state === 'lifting' || a.state === 'resting' ? 0 : 1) && this.c.exerciseById[r.exerciseId].station === st.type);
+    let exId: string;
+    if (upcoming >= 0) { exId = a.routine[upcoming].exerciseId; a.routine.splice(upcoming, 1); }
+    else exId = this.rng.weighted(this.c.exercises.filter((e) => e.station === st.type), (e) => 0.2 + e.goals[npc.goal] ** 2).id;
+    this.playerQueue(exId, 'next');
+    a.preferStation = st.id;
+    // standing around (deciding, on a break, queueing for something else): go now
+    if ((a.state === 'break' || a.state === 'waiting') && !a.interactionId) {
+      for (const s2 of this.stations) if (s2.reservedBy === a.npcId) s2.reservedBy = null;
+      if (a.state === 'waiting' && a.index < a.routine.length - 1 && a.routine[a.index].exerciseId !== exId) a.routine.splice(a.index, 1);
+      a.queueFor = null; a.breakKind = null; a.awaitingPick = false;
+      this.enter(a, 'choosing');
+    }
+    return exId;
+  }
+
+  playerHeadHome(): void {
+    const a = this.playerAgent();
+    if (!a) return;
+    a.headingHome = true;
+    a.routine = a.routine.slice(0, a.state === 'lifting' || a.state === 'resting' ? a.index + 1 : a.index);
+    if ((a.state === 'break' || a.state === 'waiting') && !a.interactionId) {
+      for (const s2 of this.stations) if (s2.reservedBy === a.npcId) s2.reservedBy = null;
+      a.awaitingPick = false; a.queueFor = null;
+      this.finishVisit(a);
     }
   }
 

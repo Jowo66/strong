@@ -3,7 +3,7 @@
 // straight lines between turns instead of zig-zagging cell by cell.
 import type { Content } from './content';
 import type { Station, Vec2 } from './types';
-import { footprint } from './footprint';
+import { buildFootprint, footprint } from './footprint';
 
 export const CELL = 0.25;
 export const AGENT_RADIUS = 0.17;
@@ -48,7 +48,8 @@ export class NavGrid {
     this.blocked.set(this.base);
     for (const r of extra) this.markRect(this.blocked, r.x0, r.x1, r.z0, r.z1, AGENT_RADIUS);
     for (const s of stations) {
-      const r = footprint(this.c, s.type, s.pos, s.rot);
+      // while the crew builds, the station may briefly face the wrong way: block both orientations
+      const r = s.building ? buildFootprint(this.c, s.type, s.pos, s.rot) : footprint(this.c, s.type, s.pos, s.rot);
       this.markRect(this.blocked, r.x0, r.x1, r.z0, r.z1, AGENT_RADIUS);
     }
   }

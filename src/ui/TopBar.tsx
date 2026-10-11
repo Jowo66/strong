@@ -31,6 +31,7 @@ export function TopBar() {
       </div>
       <nav className="actions">
         <AuraButton />
+        <button className={panel === 'player' ? 'on' : ''} onClick={() => openPanel('player')}><Icon name="user" /> <span className="label">You</span></button>
         <button className={panel === 'hall' ? 'on' : ''} onClick={() => openPanel('hall')}><Icon name="trophy" /> <span className="label">Hall of Fame</span></button>
         <button className={panel === 'music' ? 'on' : ''} onClick={() => openPanel('music')} aria-label="Music"><Icon name="speaker" /></button>
         <button className={panel === 'settings' ? 'on' : ''} onClick={() => openPanel('settings')} aria-label="Settings"><Icon name="gear" /></button>

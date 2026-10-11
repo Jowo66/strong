@@ -24,3 +24,9 @@ export function overlaps(a: Rect, b: Rect, margin = 0): boolean {
 export function inside(p: Vec2, r: Rect, pad = 0): boolean {
   return p.x > r.x0 - pad && p.x < r.x1 + pad && p.z > r.z0 - pad && p.z < r.z1 + pad;
 }
+
+/** Footprint of a station under construction: covers it facing either way (the crew sometimes builds it backwards). */
+export function buildFootprint(c: Content, type: StationType, pos: Vec2, rot: number): Rect {
+  const a = footprint(c, type, pos, rot), b = footprint(c, type, pos, rot + Math.PI);
+  return { x0: Math.min(a.x0, b.x0), x1: Math.max(a.x1, b.x1), z0: Math.min(a.z0, b.z0), z1: Math.max(a.z1, b.z1) };
+}

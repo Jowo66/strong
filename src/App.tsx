@@ -13,6 +13,8 @@ import { SettingsPanel } from './ui/SettingsPanel';
 import { MusicWindow } from './ui/MusicWindow';
 import { ProfileCard } from './ui/ProfileCard';
 import { YearReview } from './ui/YearReview';
+import { PlayerPanel } from './ui/PlayerPanel';
+import { CharacterCreator } from './ui/CharacterCreator';
 import { useSettings } from './store/settings';
 import { useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
@@ -52,7 +54,12 @@ export default function App() {
     // Canvas textures (floor labels, signs) need the self-hosted font before they are drawn.
     const fonts = document.fonts?.load(`900 32px "Nunito Variable"`).catch(() => undefined) ?? Promise.resolve();
     const fontTimeout = new Promise((r) => setTimeout(r, 2000));
-    void Promise.all([waitForHydration(), Promise.race([fonts, fontTimeout])]).then(() => setEngine(boot(useSaveStore.getState().save)));
+    void Promise.all([waitForHydration(), Promise.race([fonts, fontTimeout])]).then(() => {
+      const eng = boot(useSaveStore.getState().save);
+      setEngine(eng);
+      // first visit: make your character
+      if (!eng.save.playerCreated && !new URLSearchParams(location.search).has('lineup')) useUi.getState().openPanel('creator');
+    });
   }, []);
 
   const save = useCallback(() => { if (engine) useSaveStore.getState().setSave(engine.snapshot()); }, [engine]);
@@ -94,6 +101,8 @@ export default function App() {
         {panel === 'music' && <MusicWindow />}
         {panel === 'profile' && <ProfileCard />}
         {panel === 'review' && <YearReview />}
+        {panel === 'player' && <PlayerPanel />}
+        {panel === 'creator' && <CharacterCreator />}
       </div>
     </EngineContext.Provider>
   );

@@ -14,6 +14,7 @@ import { useSettings } from '../store/settings';
 import { Kit, kitMaterial } from './kit';
 import { labelTexture } from './labels';
 import { bakePending } from './portraits';
+import { useUi } from '../store/ui';
 
 const CREW_LOOKS = [0, 1, 2].map(lookForCrew);
 
@@ -33,6 +34,7 @@ function memberSource(eng: SimEngine, id: string): () => AvatarSource | undefine
     const npc = eng.save.members[id];
     out.weight = !out.exercise ? undefined : a.warmup ? 135 : out.exercise === 'rack_curl' ? Math.round(((npc?.weights.db_curl ?? 20) * 2) / 5) * 5 + 45 : Math.round((npc?.weights[out.exercise] ?? 0) / 5) * 5;
     out.y = a.elev ?? 0;
+    out.auraGold = a.auraGold;
     out.banner = a.banner ?? null;
     return out;
   };
@@ -180,6 +182,32 @@ function Podium() {
   );
 }
 
+/** Follow-cam: the camera glides along with the player, keeping its angle. */
+function FollowCam() {
+  const eng = useEngine();
+  const follow = useUi((s) => s.follow);
+  const engaged = useRef(false);
+  const desired = useMemo(() => new THREE.Vector3(), []), delta = useMemo(() => new THREE.Vector3(), []);
+  useFrame((state, dt) => {
+    const controls = state.controls as unknown as { target: THREE.Vector3; update: () => void } | null;
+    if (!follow || !controls) { engaged.current = false; return; }
+    const a = eng.playerAgent();
+    if (!a) return;
+    desired.set(a.pos.x, 0.8, a.pos.z);
+    delta.copy(desired).sub(controls.target).multiplyScalar(Math.min(1, dt * 3));
+    controls.target.add(delta);
+    state.camera.position.add(delta);
+    if (!engaged.current) {
+      // zoom in a little when following starts
+      engaged.current = true;
+      const off = state.camera.position.clone().sub(controls.target);
+      if (off.length() > 22) state.camera.position.copy(controls.target).add(off.setLength(22));
+    }
+    controls.update();
+  });
+  return null;
+}
+
 /** Bakes member portraits (Hall of Fame wall, profile cards) a couple per frame. */
 function PortraitBaker() {
   useFrame((state) => bakePending(state.gl));
@@ -214,6 +242,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Crew />
         <Podium />
         <PortraitBaker />
+        <FollowCam />
         <OrbitControls makeDefault target={[0, 0, -0.5]} enablePan={false} minDistance={14} maxDistance={120}
           minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={-0.6} maxAzimuthAngle={0.9} enableDamping />
         {(tiltShift || high) && (

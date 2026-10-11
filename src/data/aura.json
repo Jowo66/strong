@@ -1,5 +1,6 @@
 {
   "durationSeconds": 2.2,
+  "goldenPrChance": 0.25,
   "colours": [
     { "id": "gold", "name": "Gold", "hex": "#FFC93C" },
     { "id": "blue", "name": "Blue", "hex": "#3A86FF" },

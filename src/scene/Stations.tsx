@@ -11,6 +11,7 @@ import type { Station, StationType } from '../sim/types';
 import { Kit, equipmentMaterial, kitMaterial } from './kit';
 import { platesFor, PLATE_COLOURS, PLATE_RADIUS } from './plates';
 import { propFor } from './character/poses';
+import { useUi } from '../store/ui';
 
 const FRAME = '#3D405B', FRAME_DARK = '#2B2D42', PAD = '#22223B', PAD_ACCENT = '#E63946', CHROME = '#C9CED6';
 const RUBBER = '#2F2F33', WOOD = '#C69C6D', WOOD_DARK = '#A47148', STEEL = '#8D99AE';
@@ -312,8 +313,17 @@ export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; 
     if (flywheel.current && inUse) flywheel.current.rotation.x -= dt * 9;
   });
 
+  const onClick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    const ui = useUi.getState();
+    if (!eng.playerAgent()) { ui.showBanner("You're not in the gym right now."); return; }
+    const st = eng.stations.find((s) => s.id === id);
+    const ex = eng.playerGoToStation(id);
+    if (ex && st) ui.showBanner(`Up next: ${eng.c.exerciseById[ex].name} at ${st.label}`);
+  };
   return (
-    <group ref={root}>
+    <group ref={root} onClick={onClick}
+      onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
       <group ref={model}>
         <mesh geometry={body} material={equipmentMaterial} castShadow receiveShadow />
         {rack && (

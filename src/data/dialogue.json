@@ -92,8 +92,8 @@
     "pretend": ["*definitely not watching*", "*ties shoelace intently*", "*studies the ceiling*", "*suddenly needs water*", "*reads the poster carefully*", "*checks phone very hard*"]
   },
   "lostBottle": {
-    "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My bottle!", "Bottle? Bottle!", "Not again."],
-    "found": ["...it was here the whole time.", "Oh. There it is.", "I knew that.", "Nobody saw that.", "We were never apart."]
+    "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My bottle!", "Bottle? Bottle!", "Not again.", "Who took my water?!", "It was RIGHT here.", "*pats every pocket*"],
+    "found": ["...it was here the whole time.", "Oh. There it is.", "I knew that.", "Nobody saw that.", "We were never apart.", "Found it. Was holding it.", "It was under my towel. Classic."]
   },
   "noRerack": ["*leaves plates on*", "Someone else will get it.", "The plates like it there.", "Free warm-up for the next person.", "*walks away from 225*", "It's a gift."],
   "photoOp": ["📸 One for the 'gram.", "📸 *loads three plates for the photo*", "📸 Hold on, lighting.", "📸 Get my good side.", "📸 This is for content.", "📸 *takes a plate off immediately after*"],

@@ -22,6 +22,7 @@ export interface AvatarSource {
   y?: number;                 // standing on something (the podium)
   carry?: 'plank' | null;     // crew carrying a plank
   carryRot?: number;          // 0 = sideways (stuck in doorways), π/2 = lengthwise
+  auraGold?: boolean;         // golden PR: gold aura whatever colour was picked
   banner?: Bubble | null;     // title banner after winning
 }
 
@@ -89,7 +90,10 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const setHovered = useUi((s) => s.setHovered);
   const openProfile = useUi((s) => s.openProfile);
   const reducedMotion = useSettings((s) => s.reducedMotion);
-  const auraHex = useSettings((s) => eng.c.aura.colours.find((c) => c.id === s.auraColour)?.hex ?? '#FFC93C');
+  const auraId = useSettings((s) => s.auraColour);
+  const pickedHex = eng.c.aura.colours.find((c) => c.id === auraId)?.hex ?? '#FFC93C';
+  const auraParticleMat = useRef<THREE.MeshBasicMaterial>(null!);
+  const auraShellMat = useRef<THREE.MeshBasicMaterial>(null!);
 
   const root = useRef<THREE.Group>(null!);
   const body = useRef<THREE.Group>(null!);
@@ -244,18 +248,62 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       }
     }
 
-    // --- aura ---
+    // --- aura: each colour moves differently; a golden PR overrides the colour ---
     const auraT = a.aura ?? 0;
     aura.current.visible = auraT > 0;
     auraLight.current.intensity = auraT > 0 ? 5 + Math.sin(c.t * 18) * 2.5 : 0;
     if (auraT > 0) {
+      const kind = a.auraGold ? 'gold' : auraId;
+      const hex = a.auraGold ? '#FFD700' : pickedHex;
+      auraParticleMat.current.color.set(hex); auraShellMat.current.color.set(hex); auraLight.current.color.set(hex);
       const im = auraParticles.current;
+      const tt = reducedMotion ? 0.5 : c.t;
       for (let i = 0; i < AURA_N; i++) {
         const f = i / AURA_N;
-        const rise = reducedMotion ? f : (f + c.t * 0.6) % 1;
-        const ang = f * Math.PI * 2 * 3 + (reducedMotion ? 0 : c.t * 4);
-        const r = 0.55 + Math.sin(rise * Math.PI) * 0.2;
-        m4.compose(v3.set(Math.cos(ang) * r, 0.1 + rise * 2.3, Math.sin(ang) * r), q1.identity(), v1.setScalar(1 - rise * 0.7));
+        let x = 0, y = 0, z = 0, sc = 1;
+        switch (kind) {
+          case 'red': { // flames: fast, flickering, shrinking as they rise
+            const rise = (f * 3.7 + tt * 1.6) % 1, ang = f * 37;
+            x = Math.cos(ang) * (0.45 - rise * 0.25) + Math.sin(tt * 9 + i) * 0.04; z = Math.sin(ang) * (0.45 - rise * 0.25); y = rise * 2.2; sc = 1.4 * (1 - rise);
+            break;
+          }
+          case 'blue': { // tight, quick spiral
+            const rise = (f + tt * 0.9) % 1, ang = f * Math.PI * 12 + tt * 8;
+            x = Math.cos(ang) * 0.5; z = Math.sin(ang) * 0.5; y = rise * 2.4; sc = 0.8;
+            break;
+          }
+          case 'purple': { // orbiting rings at three heights
+            const ring = i % 3, ang = f * Math.PI * 2 * 3 + tt * (2 + ring);
+            x = Math.cos(ang) * (0.55 + ring * 0.1); z = Math.sin(ang) * (0.55 + ring * 0.1); y = 0.5 + ring * 0.6; sc = 0.9;
+            break;
+          }
+          case 'green': { // leaves drifting outwards and fluttering down
+            const life = (f * 2.3 + tt * 0.5) % 1, ang = f * 41;
+            x = Math.cos(ang) * (0.3 + life * 0.8); z = Math.sin(ang) * (0.3 + life * 0.8); y = 1.6 - life * 1.3 + Math.sin(tt * 6 + i) * 0.08; sc = 1 - life * 0.4;
+            break;
+          }
+          case 'cyan': { // shockwave rings along the floor
+            const life = (Math.floor(i / 8) / 3 + tt * 0.8) % 1, ang = ((i % 8) / 8) * Math.PI * 2;
+            x = Math.cos(ang) * (0.3 + life * 1.2); z = Math.sin(ang) * (0.3 + life * 1.2); y = 0.1 + life * 0.2; sc = 1.2 * (1 - life);
+            break;
+          }
+          case 'white': { // a soft, slow glow
+            const rise = (f + tt * 0.25) % 1, ang = f * 23;
+            x = Math.cos(ang) * 0.5; z = Math.sin(ang) * 0.5; y = 0.2 + rise * 2.0; sc = 0.7 + Math.sin(tt * 3 + i) * 0.2;
+            break;
+          }
+          case 'pink': { // floaty bubbles swaying upwards
+            const rise = (f * 1.7 + tt * 0.35) % 1, ang = f * 19;
+            x = Math.cos(ang) * 0.6 + Math.sin(tt * 2 + i) * 0.12; z = Math.sin(ang) * 0.6; y = rise * 2.4; sc = 1.1;
+            break;
+          }
+          default: { // gold: twinkling sparkles
+            const rise = (f + tt * 0.6) % 1, ang = f * Math.PI * 2 * 3 + tt * 4;
+            const r = 0.55 + Math.sin(rise * Math.PI) * 0.2;
+            x = Math.cos(ang) * r; z = Math.sin(ang) * r; y = 0.1 + rise * 2.3; sc = (1 - rise * 0.7) * (0.6 + 0.6 * Math.abs(Math.sin(tt * 10 + i)));
+          }
+        }
+        m4.compose(v3.set(x, y, z), q1.identity(), v1.setScalar(reducedMotion ? 0.8 : sc));
         im.setMatrixAt(i, m4);
       }
       im.instanceMatrix.needsUpdate = true;
@@ -286,7 +334,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       onClick={hoverable ? (e) => { e.stopPropagation(); openProfile(id); } : undefined}>
       {hoverable && <mesh geometry={hitGeo} visible={false} />}
       {isPlayer && (
-        <mesh rotation-x={-Math.PI / 2} position-y={0.02}><ringGeometry args={[0.42, 0.52, 28]} /><meshBasicMaterial color={auraHex} transparent opacity={0.9} /></mesh>
+        <mesh rotation-x={-Math.PI / 2} position-y={0.02}><ringGeometry args={[0.42, 0.52, 28]} /><meshBasicMaterial color={pickedHex} transparent opacity={0.9} /></mesh>
       )}
       <group ref={body} scale={s}>
         <primitive object={rig.bones[0]} />
@@ -307,11 +355,11 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       </group>
       <group ref={aura} visible={false}>
         <instancedMesh ref={auraParticles} args={[auraGeo, undefined, AURA_N]}>
-          <meshBasicMaterial color={auraHex} transparent opacity={0.9} />
+          <meshBasicMaterial ref={auraParticleMat} color={pickedHex} transparent opacity={0.9} />
         </instancedMesh>
-        <mesh position-y={1}><cylinderGeometry args={[0.65, 0.5, 2.1, 24, 1, true]} /><meshBasicMaterial color={auraHex} transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} /></mesh>
+        <mesh position-y={1}><cylinderGeometry args={[0.65, 0.5, 2.1, 24, 1, true]} /><meshBasicMaterial ref={auraShellMat} color={pickedHex} transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} /></mesh>
       </group>
-      <pointLight ref={auraLight} position={[0, 1.1, 0]} color={auraHex} intensity={0} distance={5} />
+      <pointLight ref={auraLight} position={[0, 1.1, 0]} color={pickedHex} intensity={0} distance={5} />
       <Html position={[0, 2.2 * look.height, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
         <div className="above">
           <div ref={bannerEl} className="title-banner" style={{ display: 'none' }} />

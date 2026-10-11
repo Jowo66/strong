@@ -57,41 +57,41 @@ const STREET_BOTTOMS = ['#2B2D42', '#3D405B', '#5C677D', '#6B705C', '#264653'];
 const npcLooks = new Map<string, { sig: string; look: CharacterLook }>();
 
 /** Memoised: the same member always gets the same look object (so its rig isn't rebuilt on re-render). */
-export function lookForNpc(npc: Npc): CharacterLook {
+export function lookForNpc(npc: Npc, seedId?: string): CharacterLook {
   const sig = `${JSON.stringify(npc.appearance)}|${npc.traits.join(',')}|${npc.goal}|${npc.experience}|${npc.firstName}${npc.lastName}`;
   const hit = npcLooks.get(npc.id);
   if (hit && hit.sig === sig) return hit.look;
-  const look = buildNpcLook(npc);
+  const look = buildNpcLook(npc, seedId ?? npc.id);
   npcLooks.set(npc.id, { sig, look });
   return look;
 }
 
-function buildNpcLook(npc: Npc): CharacterLook {
+function buildNpcLook(npc: Npc, seedId: string): CharacterLook {
   const ap: Appearance = npc.appearance;
-  const r = picker(hashString(npc.id + npc.firstName + npc.lastName));
+  const r = picker(hashString(seedId));
   const female = npc.gender === 'female';
-  const top: TopCut = female
+  const top: TopCut = ap.top ?? (female
     ? r.pick(['tee', 'tank', 'sportsTop', 'sportsTop', 'longsleeve'] as const)
-    : r.pick(['tee', 'tee', 'tank', 'longsleeve'] as const);
-  const bottom: BottomCut = female ? r.pick(['leggings', 'leggings', 'shorts', 'joggers'] as const) : r.pick(['shorts', 'shorts', 'joggers'] as const);
+    : r.pick(['tee', 'tee', 'tank', 'longsleeve'] as const));
+  const bottom: BottomCut = ap.bottom ?? (female ? r.pick(['leggings', 'leggings', 'shorts', 'joggers'] as const) : r.pick(['shorts', 'shorts', 'joggers'] as const));
   const muscleBase = { beginner: 0.1, intermediate: 0.4, advanced: 0.75 }[npc.experience];
   const goalBoost = npc.goal === 'strength' || npc.goal === 'hypertrophy' ? 0.2 : npc.goal === 'weightLoss' ? -0.15 : 0;
   const muscle = Math.max(0, Math.min(1, muscleBase + goalBoost + (r.next() - 0.5) * 0.2));
   const belly = ap.build > 1.12 && muscle < 0.6 ? Math.min(1, (ap.build - 1.1) * 6) : 0;
-  const facialHair: FacialHair = female ? 'none' : r.pick(['none', 'none', 'none', 'beard', 'stubble', 'moustache'] as const);
+  const facialHair: FacialHair = ap.facialHair ?? (female ? 'none' : r.pick(['none', 'none', 'none', 'beard', 'stubble', 'moustache'] as const));
   return {
     key: `m:${npc.id}:${npc.experience}:${npc.goal}:${npc.traits.join(',')}:${JSON.stringify(ap)}`,
     gender: npc.gender,
     skin: ap.skin, hair: ap.hair, hairStyle: ap.hairStyle, facialHair,
     top, bottom,
     shirt: ap.shirt, trim: r.pick(TRIMS), shorts: ap.shorts,
-    shoes: r.pick(SHOES), sole: '#F8F9FA',
+    shoes: ap.shoes ?? r.pick(SHOES), sole: '#F8F9FA',
     street: ap.street, streetBottom: r.pick(STREET_BOTTOMS),
     height: ap.height, build: ap.build, muscle, belly,
     headphones: npc.traits.includes('focused'),
     belt: npc.goal === 'strength' && npc.experience !== 'beginner',
     wristbands: r.chance(0.2),
-    glasses: r.chance(0.12),
+    glasses: ap.glasses ?? r.chance(0.12),
     crew: false,
   };
 }

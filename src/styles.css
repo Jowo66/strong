@@ -195,3 +195,37 @@ button .icon + .label { margin-left: 2px; }
 .link.inline { padding: 0; font-weight: 800; }
 .review-links { margin-bottom: 6px; }
 .hc .rcard { background: #fff; border: 2px solid #000; }
+
+/* "You" panel, character creator, progress chart */
+.small { font-size: 0.85em; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; margin: 8px 0 4px; }
+.seg button { flex: 1; border: 0; background: transparent; padding: 6px 8px; font: inherit; font-weight: 700; cursor: pointer; }
+.seg button.on { background: var(--ink); color: #fff; }
+.routine { list-style: none; padding: 0; margin: 4px 0 8px; counter-reset: r; }
+.routine li { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; border-radius: 8px; counter-increment: r; }
+.routine li::before { content: counter(r); font-weight: 800; color: var(--muted); width: 18px; }
+.routine li span { flex: 1; }
+.routine li.current { background: rgba(244, 180, 0, 0.16); font-weight: 800; }
+.picker h4 { margin: 8px 0 2px; font-size: 0.8em; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.picker .chip { border: 1px solid var(--line); cursor: pointer; font: inherit; font-size: 0.9em; }
+.picker .chip.good { border-color: #2a9d8f; background: rgba(42, 157, 143, 0.1); }
+.chart { margin: 6px 0; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; }
+.legend { list-style: none; display: flex; gap: 10px; padding: 0; margin: 0; font-size: 0.85em; color: var(--ink); }
+.legend li { display: flex; align-items: center; gap: 4px; }
+.chart-wrap { position: relative; background: #fcfcfb; border-radius: 10px; border: 1px solid var(--line); }
+.chart-wrap svg { display: block; touch-action: none; }
+.chart .axis { font-size: 9px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .end-label { font-size: 9.5px; font-weight: 700; fill: var(--ink); }
+.chart-tip { position: absolute; top: 4px; transform: translateX(-50%); background: var(--card); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 4px 8px; font-size: 0.78em; display: flex; flex-direction: column; pointer-events: none; white-space: nowrap; }
+.chart-tip span { display: flex; align-items: center; gap: 4px; }
+.creator .preview { height: 210px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); cursor: pointer; margin-bottom: 4px; }
+.name-row { display: flex; gap: 6px; }
+.name-row input { flex: 1; min-width: 0; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); font: inherit; }
+.swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.swatches button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(0,0,0,.15); cursor: pointer; padding: 0; }
+.swatches button.on { outline: 3px solid var(--ink); outline-offset: 1px; }
+.btns.sticky { position: sticky; bottom: -16px; background: var(--card); padding: 8px 0; margin-bottom: -8px; }
+.creator .row > span { display: block; }
+.btns button.cta { background: #C0583C; border-color: #C0583C; color: #fff; }
+.hc .btns button.cta { background: #000; border-color: #000; }

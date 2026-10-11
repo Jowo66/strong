@@ -10,8 +10,8 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M3 | Movement and behaviour polish | ✅ Done |
 | M4 | Social and humour depth | ✅ Done |
 | M5 | Gym Legends: full presentation | ✅ Done |
-| M6 | The player | 🟨 Next (aura done) |
-| M7 | Music and sound | 🟨 Spotify done |
+| M6 | The player | ✅ Done |
+| M7 | Music and sound | 🟨 Next (Spotify done) |
 | M8 | Accessibility, performance, launch | 🟨 Basics done |
 
 ---
@@ -99,7 +99,10 @@ Systems shipped in M1; this milestone makes them *felt*.
 
 **Acceptance:** a test gym run for a simulated year shows a ceremony with at least 3 winners; profile cards show at least 3 Moments for regulars.
 
-## M6 — The player
+## M6 — The player ✅
+
+Shipped: a character creator with a live 3D preview (name with a random-name button per country, country, King/Queen title style, goal, level for a new player, skin, hair, facial hair, glasses, top, bottoms, colours, shoes, hoodie, height, build), opening on first visit. Autopilot or "I pick every exercise" (the player waits for your pick), an up-next list, add/remove exercises, click any station to train there next, Head home, and a follow-cam. A progress panel with a lifts-over-time chart (validated palette, legend, end labels, crosshair tooltip, table view), streak, PRs and titles. Auras now move differently per colour (flames, spirals, orbits, leaves, shockwaves, glow, bubbles, sparkles), and a PR has a 25% chance of a golden aura with a `goldenPr` Moment. The acceptance check is an automated test.
+
 
 - Character creator (name, look, goal), replacing the random player
 - Player control options: choose the next exercise; click a station to go there; follow-cam toggle

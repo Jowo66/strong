@@ -22,15 +22,8 @@ export function createNpc(c: Content, rng: Rng, o: CreateNpcOptions): Npc {
   o.taken.add(nameKey(n));
   const experience = rng.weightedKey(c.progression.experienceMix) as Experience;
   const goal = rng.weighted(c.goals, (g) => g.weight).id as GoalId;
-  const expIdx = c.progression.experienceIndex[experience];
-  const gf = c.progression.genderFactor[n.gender];
 
-  const start: Record<string, number> = {};
-  for (const ex of c.exercises) {
-    if (!ex.weight) continue;
-    const factor = ex.body === 'upper' || ex.body === 'lower' || ex.body === 'core' ? gf[ex.body] : 1;
-    start[ex.id] = roundTo(ex.weight[expIdx] * factor * rng.range(c.progression.startJitter[0], c.progression.startJitter[1]), c.progression.plateRounding);
-  }
+  const start = startingWeights(c, experience, n.gender, rng);
   const best = {} as Record<LiftKey, number>;
   for (const k of LIFT_KEYS) {
     const ex = c.exercises.find((e) => e.lift === k)!;
@@ -64,6 +57,19 @@ export function createNpc(c: Content, rng: Rng, o: CreateNpcOptions): Npc {
       build: rng.range(0.85, 1.25),
     },
   };
+}
+
+/** Starting working weight per exercise for a level and gender (with a little jitter). */
+export function startingWeights(c: Content, experience: Experience, gender: Npc['gender'], rng: Rng): Record<string, number> {
+  const expIdx = c.progression.experienceIndex[experience];
+  const gf = c.progression.genderFactor[gender];
+  const start: Record<string, number> = {};
+  for (const ex of c.exercises) {
+    if (!ex.weight) continue;
+    const factor = ex.body === 'upper' || ex.body === 'lower' || ex.body === 'core' ? gf[ex.body] : 1;
+    start[ex.id] = roundTo(ex.weight[expIdx] * factor * rng.range(c.progression.startJitter[0], c.progression.startJitter[1]), c.progression.plateRounding);
+  }
+  return start;
 }
 
 export function isRegular(c: Content, npc: Npc): boolean {

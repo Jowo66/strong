@@ -277,6 +277,41 @@ describe('engine', () => {
     expect(worst[1], `"${worst[0]}" repeated ${worst[1]} times`).toBeLessThanOrEqual(2);
   });
 
+  it('a new player creates a character, trains a full routine by choice, and has a progress chart after three days', () => {
+    const save = SimEngine.createSave(c, { members: 30, mixChance: 0, seed: 4, createdAt: '2026-04-01' });
+    const eng = new SimEngine(c, save, { dayLength: 600, cap: 25, members: 30, mixChance: 0 }, 4);
+    eng.updatePlayer({ firstName: 'Ada', lastName: 'Okafor', country: 'NG', gender: 'female', goal: 'strength', experience: 'beginner', appearance: { top: 'tank', hairStyle: 'bun' } });
+    eng.setPlayerMode('manual');
+    const p = eng.player!;
+    expect(p.firstName).toBe('Ada');
+    expect(eng.save.playerCreated).toBe(true);
+    const plan = ['back_squat', 'bench_press', 'deadlift', 'lat_pulldown', 'db_curl', 'plank'];
+    const picked: string[] = [];
+    let i = 0;
+    for (; i < 6000 && picked.length < plan.length; i++) {
+      eng.step(STEP);
+      const a = eng.playerAgent();
+      if (a?.awaitingPick) { eng.playerQueue(plan[picked.length]); picked.push(plan[picked.length]); }
+    }
+    expect(picked).toEqual(plan);
+    // finish the last pick, then the player waits for more instead of following a generated routine
+    for (let k = 0; k < 2000 && !eng.playerAgent()?.awaitingPick; k++) eng.step(STEP);
+    expect(eng.playerAgent()?.awaitingPick).toBe(true);
+    for (const ex of plan) expect(p.sessions[ex] ?? 0, `${ex} was trained`).toBeGreaterThanOrEqual(1);
+    expect(Object.keys(p.sessions).sort()).toEqual([...plan].sort()); // nothing the player didn't choose
+    // clicking a station sends the player there
+    const bench = eng.stations.find((s) => s.type === 'bench' && !s.occupant && !s.reservedBy)!;
+    expect(eng.playerGoToStation(bench.id)).not.toBeNull();
+    let atBench = false;
+    for (let k = 0; k < 600 && !atBench; k++) { eng.step(STEP); atBench = eng.playerAgent()?.stationId === bench.id && eng.playerAgent()?.state === 'lifting'; }
+    expect(atBench).toBe(true);
+    // three in-game days later there is a chart to draw
+    eng.setPlayerMode('auto');
+    for (let k = 0; k < Math.round((600 * 3) / STEP); k++) eng.step(STEP);
+    expect(eng.save.playerHistory!.length, `day ${eng.save.day}, visits ${p.stats.visits}`).toBeGreaterThanOrEqual(3);
+    expect(p.stats.visits).toBeGreaterThanOrEqual(3);
+  });
+
   it('catches up missed days and hands out annual titles at new year', () => {
     const eng = new SimEngine(c, saveWith(40), settings, 9);
     const r = eng.catchUp(20);

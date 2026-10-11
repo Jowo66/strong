@@ -19,6 +19,7 @@
     "rackCurl":      { "notability": 3,                                  "feed": "{name} did curls in the squat rack. People noticed." },
     "phoneHog":      { "notability": 3,                                  "feed": "{name} took a phone call on {detail}. The queue waited." },
     "heavyDrop":     { "notability": 4,                                  "feed": "{name} dropped {detail} from the top. Everyone jumped." },
-    "longWarmup":    { "notability": 3,                                  "feed": "{name} spent twenty minutes on a warm-up set of {detail}." }
+    "longWarmup":    { "notability": 3,                                  "feed": "{name} spent twenty minutes on a warm-up set of {detail}." },
+    "goldenPr":      { "notability": 8,                                  "feed": "✨ {name} hit a GOLDEN PR: {detail}! ✨" }
   }
 }

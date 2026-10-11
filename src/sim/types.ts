@@ -21,7 +21,7 @@ export type MomentType =
   | 'pr' | 'flexOffWin' | 'flexOffLoss' | 'flexOffDraw' | 'spot' | 'overSpot'
   | 'construction' | 'lostBottle' | 'noRerack' | 'photoOp' | 'flirtFail'
   | 'streak' | 'titleWon' | 'titleLost' | 'ceremony'
-  | 'rackCurl' | 'phoneHog' | 'heavyDrop' | 'longWarmup';
+  | 'rackCurl' | 'phoneHog' | 'heavyDrop' | 'longWarmup' | 'goldenPr';
 
 export interface Moment {
   id: string;
@@ -68,6 +68,12 @@ export interface Appearance {
   shirt: string; shorts: string; street: string;
   height: number;         // 0.9 – 1.1 scale
   build: number;          // 0.85 – 1.25 width scale
+  // optional choices from the character creator (otherwise derived from the member id)
+  top?: 'tee' | 'tank' | 'sportsTop' | 'longsleeve';
+  bottom?: 'shorts' | 'leggings' | 'joggers';
+  facialHair?: 'none' | 'beard' | 'stubble' | 'moustache';
+  shoes?: string;
+  glasses?: boolean;
 }
 
 export interface Npc {
@@ -120,7 +126,12 @@ export interface SaveData {
   titles: TitleRecord[];
   pendingCeremonyYear?: number;
   yearReviews?: Record<string, YearReview>;
+  playerCreated?: boolean;                 // the character creator has been used
+  playerMode?: 'auto' | 'manual';          // manual: the player picks every exercise
+  playerHistory?: PlayerDay[];             // one point per day for the progress chart
 }
+
+export interface PlayerDay { day: number; date: string; bench: number; squat: number; deadlift: number; visits: number }
 
 /** The 1 January "year in review" card. Built when the year rolls over, kept in the save. */
 export interface YearReview {
@@ -189,6 +200,10 @@ export interface Agent {
   onCall?: boolean;              // taking a phone call on the machine
   phoneUsed?: boolean;
   warmup?: boolean;              // the very long warm-up set of 135
+  auraGold?: boolean;            // golden PR aura (overrides the chosen colour)
+  awaitingPick?: boolean;        // manual player waiting for the next exercise
+  preferStation?: string | null; // the player clicked this station
+  headingHome?: boolean;
 }
 
 export interface Station {

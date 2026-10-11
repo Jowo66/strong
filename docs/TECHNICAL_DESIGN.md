@@ -170,7 +170,7 @@ Walking members are nudged apart by simple separation steering, but never onto a
 - favourite exercise weighted by goal affinity²;
 - starting weights = exercise base for that experience × gender factor (women: upper 0.55, lower 0.70) × jitter 0.8–1.15, rounded to 5 lb.
 
-The **player** is a normal member (`id: "player"`, `isPlayer: true`, attendance 1). They arrive first, and after finishing a routine they roll a new one, staying until closing so the Aura button usually has someone to power up.
+The **player** is a normal member (`id: "player"`, `isPlayer: true`, attendance 1) shaped by the character creator (`engine.updatePlayer`; a player who hasn't trained yet also gets fresh starting weights for their level). They arrive first each day. On **Autopilot** they roll a new routine whenever one ends and stay until closing. In **manual** mode (`save.playerMode`) they start with an empty list and wait (`awaitingPick`) until you add an exercise (`playerQueue`); clicking a station (`playerGoToStation`) queues an exercise for that station next and walks there (queueing if it's busy); **Head home** finishes the current exercise and leaves. A daily point (working bench, squat, deadlift) goes into `save.playerHistory` for the progress chart. Members still inside at the day rollover come back once they've left.
 
 ### 6.4 Traits
 
