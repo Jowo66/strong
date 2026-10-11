@@ -1,0 +1,10 @@
+{
+  "_notes": "members = total roster; cap = max members in the gym at once. Average occupancy is roughly members x attendance x (visit length / day length).",
+  "sizes": {
+    "small":  { "label": "Small Gym",  "members": 20, "cap": 10 },
+    "medium": { "label": "Medium Gym", "members": 50, "cap": 25 },
+    "rush":   { "label": "Rush Hour",  "members": 90, "cap": 40 }
+  },
+  "arrival": { "morning": { "share": 0.35, "mean": 0.18, "sd": 0.06 }, "evening": { "share": 0.45, "mean": 0.68, "sd": 0.08 }, "uniform": { "share": 0.2, "from": 0.04, "to": 0.88 } },
+  "closingAt": 0.92
+}

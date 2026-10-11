@@ -1,0 +1,60 @@
+{
+  "_notes": "Base chances. 'perSecond' events are rolled once per sim second per eligible member; others are rolled once per trigger.",
+  "conversation": {
+    "perSecond": 0.012,
+    "radius": 4.0,
+    "lineSeconds": 1.8
+  },
+  "flirt": {
+    "perSecond": 0.0025,
+    "radius": 5.0,
+    "lineSeconds": 1.8
+  },
+  "flexOff": {
+    "perSecond": 0.004,
+    "radius": 7.0,
+    "poseSeconds": 5.0,
+    "rivalBonus": 4.0,
+    "rivalryThreshold": 3,
+    "outcomes": {
+      "winner": 0.45,
+      "mutual": 0.25,
+      "bothWon": 0.2,
+      "laugh": 0.1
+    }
+  },
+  "spot": {
+    "perTrigger": 0.1,
+    "radius": 6.0,
+    "outcomes": {
+      "success": 0.65,
+      "overenthusiastic": 0.35
+    }
+  },
+  "photoOp": {
+    "perTrigger": 0.04
+  },
+  "lostBottle": {
+    "perTrigger": 0.012
+  },
+  "noRerack": {
+    "perTrigger": 0.02,
+    "plateSeconds": 20
+  },
+  "grunt": {
+    "perTrigger": 0.5
+  },
+  "prReaction": {
+    "radius": 7.0,
+    "clap": 0.4,
+    "pretend": 0.25
+  },
+  "construction": {
+    "maxTemporaryPerType": 2,
+    "waitBeforeSkip": 30,
+    "buildSeconds": 6,
+    "removeAfterIdle": 45,
+    "gagChance": 0.5
+  },
+  "waitBeforeBuild": 3
+}

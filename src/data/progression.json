@@ -1,0 +1,18 @@
+{
+  "_notes": "Working weight follows w_next = w + (cap - w) * k * goalMultiplier * jitter, once per session of that exercise. cap = start * ceiling[experience]. baseK is calibrated so a beginner benching 135 reaches ~190 after ~38 sessions (6 months) and ~225 after ~75 (12 months).",
+  "baseK": 0.0146,
+  "jitter": [0.6, 1.4],
+  "ceiling": { "beginner": 2.0, "intermediate": 1.45, "advanced": 1.15 },
+  "experienceIndex": { "beginner": 0, "intermediate": 1, "advanced": 2 },
+  "experienceMix": { "beginner": 0.45, "intermediate": 0.4, "advanced": 0.15 },
+  "genderFactor": { "male": { "upper": 1.0, "lower": 1.0, "core": 1.0 }, "female": { "upper": 0.55, "lower": 0.7, "core": 1.0 } },
+  "startJitter": [0.8, 1.15],
+  "plateRounding": 5,
+  "liftSeconds": [4, 7],
+  "cardioSeconds": [18, 32],
+  "attendance": [0.2, 0.85],
+  "regularThreshold": 0.55,
+  "streakMoments": [7, 14, 30, 60, 100],
+  "maxMomentsPerMember": 50,
+  "catchUpMaxDays": 30
+}

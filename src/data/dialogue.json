@@ -1,0 +1,68 @@
+{
+  "conversations": [
+    ["How many sets left?", "Four. Probably six.", "Respect."],
+    ["You using this?", "Two more sets.", "Cool cool cool."],
+    ["Leg day?", "Every day is leg day.", "...that's not true."],
+    ["New shoes?", "Flat soles. For stability.", "Very serious."],
+    ["Is it hot in here?", "It's the pump.", "Ah."],
+    ["What's your split?", "Push, pull, nap.", "Elite."],
+    ["Did you see the construction crew?", "They built a bench in six seconds.", "Backwards, at first."],
+    ["Pre-workout kicking in?", "I can hear colours.", "Nice."],
+    ["Good form today.", "Thanks. I watched a video.", "One video?", "A long one."],
+    ["You come here often?", "Every day at this exact time.", "Same.", "We've never met?"],
+    ["How's the shoulder?", "Clicks a bit.", "Gym music."],
+    ["Protein shake after?", "Before, during, and after.", "Balanced."]
+  ],
+  "flirt": [
+    ["Hey.", "I'm on my rest timer."],
+    ["Do you lift here often?", "I lift here now. Goodbye."],
+    ["Nice deadlift.", "Thanks. Thirty seconds left on my rest."],
+    ["Want to work in?", "I'm in my own world. Literally. Headphones."],
+    ["Can I borrow your chalk?", "It's emotional chalk. No."]
+  ],
+  "flirtExit": ["*walks away dramatically*", "*pretends to check phone*", "*stares at the ceiling for a while*"],
+  "flexOff": {
+    "start": ["...", "Oh, it's ON.", "Mirror. Now."],
+    "winner": ["Undefeated.", "As expected."],
+    "loser": ["Rematch.", "The lighting was off."],
+    "mutual": ["Respect.", "Respect."],
+    "bothWon": ["I won.", "I won."],
+    "laugh": ["pfft", "hahaha", "*wheezes quietly*"]
+  },
+  "spot": {
+    "ask": ["Can you spot me?", "Quick spot?", "Spot? Just in case."],
+    "accept": ["Got you.", "All you.", "I'm here."],
+    "success": ["👊", "Nice rep."],
+    "overenthusiastic": ["ALL YOU! ALL YOU!", "LIGHT WEIGHT BABY!", "UP! UP! UP!"],
+    "overReply": ["...you had the whole bar.", "Thanks. My ears."]
+  },
+  "pr": {
+    "lifter": ["NEW PR!", "LET'S GO!", "Was that a PR? That was a PR."],
+    "clap": ["👏", "👏👏", "Big!"],
+    "pretend": ["*definitely not watching*", "*very interested in shoelace*"]
+  },
+  "lostBottle": {
+    "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My water…"],
+    "found": ["…it was here the whole time.", "Found it. Right where I left it."]
+  },
+  "noRerack": ["*leaves plates on*", "Someone else'll get it."],
+  "photoOp": ["📸", "One more angle.", "For the story."],
+  "grunt": ["HNNGH", "HUP!", "RAAH"],
+  "checkIn": ["Morning!", "Hey!", "*beep*", "Here again."],
+  "crew": {
+    "arrive": ["Coming through!", "Mind the planks!"],
+    "drop": ["Oops.", "That's fine.", "Nobody saw that."],
+    "backwards": ["Hmm.", "Other way!"],
+    "celebrate": ["🎉", "WE DID IT!", "Masterpiece."],
+    "remove": ["Packing up!", "Not needed? Fair."],
+    "wave": ["👋 {name}!", "Hey, it's {name}!"]
+  },
+  "title": {
+    "won": ["⭐ {title}"],
+    "react": ["Legend.", "*nods respectfully*", "Is that…?"]
+  },
+  "ceremony": {
+    "announce": ["The {year} Gym Legends Awards!"],
+    "winner": ["I'd like to thank the bench.", "This is for the regulars.", "*flexes on podium*"]
+  }
+}

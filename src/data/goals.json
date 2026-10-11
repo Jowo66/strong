@@ -1,0 +1,10 @@
+{
+  "goals": [
+    { "id": "hypertrophy",    "name": "Hypertrophy",          "weight": 3, "sets": [3, 4], "rest": [7, 12],  "progression": 1.0 },
+    { "id": "strength",       "name": "Strength",             "weight": 2, "sets": [3, 5], "rest": [11, 18], "progression": 1.2 },
+    { "id": "generalFitness", "name": "General Fitness",      "weight": 3, "sets": [2, 3], "rest": [6, 10],  "progression": 0.7 },
+    { "id": "weightLoss",     "name": "Weight Loss",          "weight": 2, "sets": [2, 3], "rest": [5, 8],   "progression": 0.5 },
+    { "id": "athletic",       "name": "Athletic Performance", "weight": 1, "sets": [3, 4], "rest": [8, 14],  "progression": 0.9 }
+  ],
+  "_notes": "rest = real seconds between sets at 1x speed. A set lasts liftSeconds from progression.json; a cardio exercise is one long set."
+}

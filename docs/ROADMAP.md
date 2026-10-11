@@ -1,0 +1,118 @@
+# Mini Gym — Milestone Roadmap
+
+Each milestone ends with something playable at https://jowo66.github.io/strong/. A milestone is done when its acceptance checks pass and it is deployed.
+
+| # | Milestone | Status |
+|---|---|---|
+| M0 | Scaffold and deploy | ✅ Done |
+| M1 | Living gym core | ✅ Done (placeholder art) |
+| M2 | Diorama look | ⬜ Next |
+| M3 | Movement and behaviour polish | ⬜ |
+| M4 | Social and humour depth | ⬜ |
+| M5 | Gym Legends: full presentation | 🟨 Systems done, presentation pending |
+| M6 | The player | 🟨 Aura done |
+| M7 | Music and sound | 🟨 Spotify done |
+| M8 | Accessibility, performance, launch | 🟨 Basics done |
+
+---
+
+## M0 — Scaffold and deploy ✅
+
+- Vite + React + TypeScript + React Three Fiber + Zustand project, `base: '/strong/'`
+- GitHub Actions: test → build → deploy to Pages
+- Docs: spec, technical design, art list, roadmap
+
+**Acceptance:** pushing to `main` deploys to jowo66.github.io/strong; `npm test` is green.
+
+## M1 — Living gym core ✅
+
+- Content data: 12 countries of Neo-Jowo names (50/50/50 each), 32 exercises, 5 goals, 9 traits, 16 titles, dialogue, layout
+- Simulation engine: calendar, arrival schedule with morning and evening rush, locker flow, 6–8 exercise routines, station reservation and waiting, progression and PRs
+- Social events: conversations, failed flirtations, Flex-Offs, spotting, PR reactions, lost bottles, no-reracks, photo-ops
+- Construction crew with gags; temporary stations removed when idle
+- Gym Legends: Moments, stats, annual / milestone / reputation titles, featured title, archive
+- Save in IndexedDB, offline catch-up (up to 30 days), export/import, soft/hard reshuffle
+- Placeholder 3D diorama with tilt-shift, hover info terminal, Gym News feed, Hall of Fame panel, settings, aura
+
+**Acceptance:** 12 automated tests pass (names, routines, progression calibration, titles, two simulated days, construction, catch-up across new year, reshuffle).
+
+## M2 — Diorama look (next)
+
+**Goal:** it looks like a miniature you want to keep watching.
+
+- Character base meshes, hair, outfits and crew from [ART_AND_ASSETS.md](ART_AND_ASSETS.md) §2–3, using `useGLTF` + `useAnimations`
+- Equipment models (E1–E13) and room props (P1–P12)
+- Lighting pass: warm key light, soft shadows, ambient occlusion (`N8AO`), tuned tilt-shift
+- Lockers open and close, treadmill belts move, plates show on bars when loaded
+- Self-hosted rounded font and icon set
+
+**Acceptance:** 40 members at 60 fps on a mid-range laptop (Chrome, 1080p); under 600 draw calls; screenshot reads as a miniature at a glance.
+
+## M3 — Movement and behaviour polish
+
+- Nav grid + A* + separation steering (replace `route()`); members no longer walk through equipment
+- Station approach: walk to the side of the bench, sit or lie down, grab the bar
+- Queueing: a waiting member stands near the station they want and claims it when it frees up
+- Idle behaviours between exercises: water cooler, phone scrolling, mirror check, chalk up
+- Locker room privacy: changing happens behind locker doors
+
+**Acceptance:** over a full simulated day, no member passes through a station footprint; no member waits more than 30 s without either a crew build or a skip.
+
+## M4 — Social and humour depth
+
+- Dialogue ×3 (about 40 conversations, 15 flirts, more crew lines); lines can use names and context (current exercise, rival's name, title)
+- Conversations prefer familiar members; regulars greet each other by name
+- Rival storylines: rivals glance at each other, choose neighbouring stations, and react to each other's PRs
+- New events: "Can I work in?", the person who curls in the squat rack, machine-hogger phone call, heavy drop with a startled room, warm-up set of 135 lb that takes 20 minutes
+- Crew gags: carrying a plank through a doorway sideways, celebrating a little too long
+
+**Acceptance:** in a 10-minute watch at 1×, at least 8 distinct humour beats appear and none repeats more than twice.
+
+## M5 — Gym Legends: full presentation
+
+Systems shipped in M1; this milestone makes them *felt*.
+
+- Awards ceremony choreography: crew builds the podium (sometimes backwards), present winners walk up and pose, the crowd claps, confetti, and a speech line
+- Hall of Fame wall shows real member portraits (render-to-texture head shots)
+- Member profile card: click a member to see their stats, titles, rivals and Moments timeline
+- Title banner above a member's head for 5 s after winning
+- Legend recognition: members with titles get double-takes, nods and occasional imitation (someone copies the Mirror Champion's pose)
+- Year-in-review card on 1 January in-game: biggest PR, most Flex-Offs, funniest Moment
+
+**Acceptance:** a test gym run for a simulated year shows a ceremony with at least 3 winners; profile cards show at least 3 Moments for regulars.
+
+## M6 — The player
+
+- Character creator (name, look, goal), replacing the random player
+- Player control options: choose the next exercise; click a station to go there; follow-cam toggle
+- Player progress panel (lifts over time, titles, streak)
+- Aura polish: power-up animation, particles reacting to colour, rare "gold aura on PR" moment
+
+**Acceptance:** a new player can create a character, train a full routine by choice, and see their progress chart after three in-game days.
+
+## M7 — Music and sound
+
+Spotify playback via the wall speakers is already implemented (PKCE + Web Playback SDK, playlists, play/pause; the music continues when the window closes).
+
+- Volume slider, next/previous, shuffle
+- Speakers pulse in time while playing; NPCs nod along; occasional "this song 🔥" bubble
+- Ambient gym soundscape and SFX from the asset list, with a master volume and mute in Settings
+
+**Acceptance:** sign in, pick a playlist, close the window: music continues and the speakers animate. SFX can be muted independently.
+
+## M8 — Accessibility, performance, launch
+
+- Full keyboard navigation of the 3D scene (Tab cycles through members, Enter opens the profile)
+- Screen-reader summary of the gym ("12 members inside; Juno Hart is doing Bench Press, set 2 of 4")
+- Mobile layout pass, touch hover alternative (tap to inspect), lower-detail mode
+- Performance: instancing, merged statics, adaptive DPR, pause the sim when the tab is hidden (catch-up handles it)
+- Save migration tooling and a corrupted-save recovery screen
+- Social card, credits page, version number in Settings
+
+**Acceptance:** Lighthouse accessibility ≥ 90; playable on a recent phone; no console errors over 30 minutes at 4×.
+
+---
+
+## Suggested order of work
+
+M2 → M3 → M5 → M4 → M6 → M7 → M8. Looks first, because it decides whether the gym is fun to watch. Then believable movement, then making Legends visible (the feature that keeps people coming back), then more jokes.

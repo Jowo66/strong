@@ -1,0 +1,14 @@
+{
+  "_notes": "Each member gets 0-2 traits. Modifiers multiply the base chances in events.json; restMultiplier scales rest periods.",
+  "traits": [
+    { "id": "showOff",          "name": "Show-Off",           "weight": 2, "modifiers": { "flexOff": 3.0, "photoOp": 4.0 } },
+    { "id": "socialButterfly",  "name": "Social Butterfly",   "weight": 3, "modifiers": { "conversation": 2.5, "flirt": 1.5 } },
+    { "id": "forgetful",        "name": "Forgetful",          "weight": 2, "modifiers": { "lostBottle": 6.0 } },
+    { "id": "rerackAvoider",    "name": "Rerack Avoider",     "weight": 1, "modifiers": { "noRerack": 10.0 } },
+    { "id": "restEnthusiast",   "name": "Rest-Timer Enthusiast", "weight": 2, "modifiers": { "conversation": 1.5 }, "restMultiplier": 1.7 },
+    { "id": "helpful",          "name": "Helpful",            "weight": 2, "modifiers": { "spot": 3.0 } },
+    { "id": "hopelessRomantic", "name": "Hopeless Romantic",  "weight": 1, "modifiers": { "flirt": 4.0 } },
+    { "id": "focused",          "name": "Headphones-In",      "weight": 3, "modifiers": { "conversation": 0.25, "flirt": 0.2, "spot": 0.5 }, "restMultiplier": 0.85 },
+    { "id": "grunter",          "name": "Grunter",            "weight": 1, "modifiers": { "grunt": 1.0 } }
+  ]
+}

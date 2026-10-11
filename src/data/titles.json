@@ -1,0 +1,154 @@
+{
+  "_notes": "annual: one winner per in-game year, permanent. milestone: anyone who reaches the threshold. reputation: one current holder (the leader, once above minValue); when overtaken the old holder becomes 'Former …'. Featured title = highest rarity. {year} and {value} are filled in for display.",
+  "titles": [
+    {
+      "id": "benchKing",
+      "category": "annual",
+      "name": "Bench King of {year}",
+      "metric": "bestBench",
+      "gender": "male",
+      "unit": "lb",
+      "rarity": 9,
+      "description": "Heaviest bench press of the year (men)."
+    },
+    {
+      "id": "benchQueen",
+      "category": "annual",
+      "name": "Bench Queen of {year}",
+      "metric": "bestBench",
+      "gender": "female",
+      "unit": "lb",
+      "rarity": 9,
+      "description": "Heaviest bench press of the year (women)."
+    },
+    {
+      "id": "squatMonarch",
+      "category": "annual",
+      "name": "Squat Monarch of {year}",
+      "metric": "bestSquat",
+      "unit": "lb",
+      "rarity": 9,
+      "description": "Heaviest squat of the year."
+    },
+    {
+      "id": "mostImproved",
+      "category": "annual",
+      "name": "Most Improved of {year}",
+      "metric": "improvement",
+      "minVisits": 15,
+      "unit": "%",
+      "rarity": 8,
+      "description": "Largest relative strength gain across bench, squat and deadlift."
+    },
+    {
+      "id": "mostConsistent",
+      "category": "annual",
+      "name": "Most Consistent Member of {year}",
+      "metric": "visits",
+      "unit": "visits",
+      "rarity": 8,
+      "description": "Most visits in the year."
+    },
+    {
+      "id": "guardianSpotter",
+      "category": "milestone",
+      "name": "Guardian Spotter ({value} Successful Spots)",
+      "stat": "spots",
+      "threshold": 25,
+      "rarity": 6,
+      "description": "25 successful spots."
+    },
+    {
+      "id": "prMachine",
+      "category": "milestone",
+      "name": "PR Machine ({value} Personal Records)",
+      "stat": "prs",
+      "threshold": 50,
+      "rarity": 6,
+      "description": "50 personal records."
+    },
+    {
+      "id": "ironRegular",
+      "category": "milestone",
+      "name": "Iron Regular ({value} Visits)",
+      "stat": "visits",
+      "threshold": 100,
+      "rarity": 5,
+      "description": "100 visits."
+    },
+    {
+      "id": "weekWarrior",
+      "category": "milestone",
+      "name": "Streak Survivor ({value}-Day Best Streak)",
+      "stat": "bestStreak",
+      "threshold": 14,
+      "rarity": 4,
+      "description": "Trained 14 days in a row."
+    },
+    {
+      "id": "mirrorChampion",
+      "category": "reputation",
+      "name": "Mirror Champion ({value} Flex-Off Wins)",
+      "stat": "flexOffWins",
+      "minValue": 3,
+      "rarity": 7,
+      "description": "Most Flex-Off wins in the gym."
+    },
+    {
+      "id": "neverReracks",
+      "category": "reputation",
+      "name": "The Guy Who Never Reracks",
+      "stat": "noReracks",
+      "minValue": 5,
+      "rarity": 3,
+      "description": "Most plates left on the bar.",
+      "nameFemale": "The Gal Who Never Reracks"
+    },
+    {
+      "id": "crewFavourite",
+      "category": "reputation",
+      "name": "Construction Crew Favourite Customer",
+      "stat": "constructionTriggers",
+      "minValue": 3,
+      "rarity": 4,
+      "description": "Triggered the most temporary station builds."
+    },
+    {
+      "id": "lostAndFound",
+      "category": "reputation",
+      "name": "Lost & Found Legend",
+      "stat": "lostBottles",
+      "minValue": 4,
+      "rarity": 3,
+      "description": "Most water bottle searches."
+    },
+    {
+      "id": "restEnthusiast",
+      "category": "reputation",
+      "name": "Professional Rest-Timer Enthusiast",
+      "stat": "avgRest",
+      "minValue": 12,
+      "minCount": 30,
+      "rarity": 3,
+      "description": "Longest average rest between sets."
+    },
+    {
+      "id": "photoOpLoader",
+      "category": "reputation",
+      "name": "Photo-Op Plate Loader",
+      "stat": "photoOps",
+      "minValue": 3,
+      "rarity": 3,
+      "description": "Most 'load it for the photo, then unload it' moments."
+    },
+    {
+      "id": "overSpotter",
+      "category": "reputation",
+      "name": "Hype Spotter",
+      "stat": "overSpots",
+      "minValue": 4,
+      "rarity": 3,
+      "description": "Most overenthusiastic spots."
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "durationSeconds": 2.2,
+  "colours": [
+    { "id": "gold", "name": "Gold", "hex": "#FFC93C" },
+    { "id": "blue", "name": "Blue", "hex": "#3A86FF" },
+    { "id": "red", "name": "Red", "hex": "#FF3B3B" },
+    { "id": "purple", "name": "Purple", "hex": "#9B5DE5" },
+    { "id": "green", "name": "Green", "hex": "#2DC653" },
+    { "id": "cyan", "name": "Cyan", "hex": "#00D9E8" },
+    { "id": "white", "name": "White", "hex": "#F5F5F5" },
+    { "id": "pink", "name": "Pink", "hex": "#FF70A6" }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "_notes": "notability decides which moments survive the per-member cap and which show first in the Hall of Fame. stat = which counter on the member is incremented.",
+  "types": {
+    "pr":            { "notability": 6, "stat": "prs",                  "feed": "{name} hit a new {detail} PR!" },
+    "flexOffWin":    { "notability": 5, "stat": "flexOffWins",          "feed": "{name} won a Flex-Off against {other}." },
+    "flexOffLoss":   { "notability": 2, "stat": "flexOffLosses",        "feed": "{name} lost a Flex-Off to {other}." },
+    "flexOffDraw":   { "notability": 2,                                  "feed": "{name} and {other} agreed they both looked great." },
+    "spot":          { "notability": 4, "stat": "spots",                "feed": "{name} spotted {other}. Fist bump." },
+    "overSpot":      { "notability": 4, "stat": "overSpots",            "feed": "{name} spotted {other} with far too much enthusiasm." },
+    "construction":  { "notability": 4, "stat": "constructionTriggers", "feed": "The crew built {detail} for {name}." },
+    "lostBottle":    { "notability": 3, "stat": "lostBottles",          "feed": "{name} lost their water bottle. It was where they left it." },
+    "noRerack":      { "notability": 3, "stat": "noReracks",            "feed": "{name} left the plates on. Again." },
+    "photoOp":       { "notability": 3, "stat": "photoOps",             "feed": "{name} loaded {detail} for a photo, then took it all off." },
+    "flirtFail":     { "notability": 2, "stat": "flirtFails",           "feed": "{name} said hi to {other}. {other} was on their rest timer." },
+    "streak":        { "notability": 5,                                  "feed": "{name} is on a {detail}-day streak." },
+    "titleWon":      { "notability": 9,                                  "feed": "{name} is now {detail}!" },
+    "titleLost":     { "notability": 5,                                  "feed": "{name} is now {detail}." }
+  }
+}
