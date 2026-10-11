@@ -19,6 +19,9 @@ import { useSettings } from './store/settings';
 import { useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
 import { handleRedirect } from './spotify/auth';
+import { applySettings, audioState, playSfx, radioBeat, setCrowd, unlockAudio, type Sfx } from './audio/sound';
+import { useMusic, musicPlaying } from './store/music';
+import { onNowPlaying } from './spotify/player';
 
 const SAVE_EVERY_MS = 15_000;
 
@@ -38,7 +41,7 @@ function boot(existing: SaveData | null): SimEngine {
   }
   eng.configure(settings);
   // Add ?debug to the URL to poke the sim from the browser console: __gym.catchUp(3), __gym.agents, …
-  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) Object.assign(window, { __gym: eng, __ui: useUi });
+  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) Object.assign(window, { __gym: eng, __ui: useUi, __audio: { audioState, radioBeat }, __settings: useSettings });
   return eng;
 }
 
@@ -73,6 +76,24 @@ export default function App() {
     window.addEventListener('pagehide', save);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); };
   }, [engine, save]);
+
+  // Sound: engine events become synthesised effects; the first click unlocks audio.
+  useEffect(() => {
+    if (!engine) return;
+    const off = engine.onSfx((kind, pos) => playSfx(kind as Sfx, pos));
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    const crowd = setInterval(() => setCrowd(engine.agents.size), 2000);
+    const offMusic = useMusic.subscribe(() => { engine.music = musicPlaying(); });
+    const offSpotify = onNowPlaying((np) => useMusic.getState().set({ spotifyPlaying: !!np && !np.paused }));
+    return () => { off(); offMusic(); offSpotify(); clearInterval(crowd); window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock); };
+  }, [engine]);
+  useEffect(() => {
+    const push = () => applySettings(useSettings.getState());
+    push();
+    return useSettings.subscribe(push);
+  }, []);
 
   // Apply roster/day-length changes from settings without restarting the sim.
   useEffect(() => {

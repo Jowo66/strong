@@ -3,12 +3,13 @@
 import { getAccessToken } from './auth';
 
 /* Minimal typings for the SDK (https://developer.spotify.com/documentation/web-playback-sdk/reference) */
-interface SpotifyPlayerState { paused: boolean; track_window: { current_track: { name: string; artists: { name: string }[]; album: { images: { url: string }[] } } } }
+interface SpotifyPlayerState { paused: boolean; shuffle: boolean; track_window: { current_track: { name: string; artists: { name: string }[]; album: { images: { url: string }[] } } } }
 interface SpotifyPlayer {
   connect(): Promise<boolean>; disconnect(): void;
   addListener(event: string, cb: (arg: any) => void): void; // eslint-disable-line @typescript-eslint/no-explicit-any
   togglePlay(): Promise<void>; pause(): Promise<void>; resume(): Promise<void>;
   activateElement(): Promise<void>; setVolume(v: number): Promise<void>;
+  nextTrack(): Promise<void>; previousTrack(): Promise<void>;
 }
 declare global {
   interface Window {
@@ -17,12 +18,12 @@ declare global {
   }
 }
 
-export interface NowPlaying { track: string; artist: string; art?: string; paused: boolean }
+export interface NowPlaying { track: string; artist: string; art?: string; paused: boolean; shuffle: boolean }
 export interface Playlist { id: string; name: string; uri: string; image?: string }
 
 let player: SpotifyPlayer | null = null;
 let deviceId: string | null = null;
-let listeners = new Set<(np: NowPlaying | null) => void>();
+const listeners = new Set<(np: NowPlaying | null) => void>();
 
 function loadSdk(): Promise<void> {
   if (window.Spotify) return Promise.resolve();
@@ -51,7 +52,7 @@ export async function connectPlayer(): Promise<void> {
   });
   player.addListener('player_state_changed', (state: SpotifyPlayerState | null) => {
     const t = state?.track_window.current_track;
-    const np = state && t ? { track: t.name, artist: t.artists.map((a) => a.name).join(', '), art: t.album.images[0]?.url, paused: state.paused } : null;
+    const np = state && t ? { track: t.name, artist: t.artists.map((a) => a.name).join(', '), art: t.album.images[0]?.url, paused: state.paused, shuffle: state.shuffle } : null;
     listeners.forEach((fn) => fn(np));
   });
   await player.connect();
@@ -85,9 +86,16 @@ export async function playPlaylist(uri: string): Promise<void> {
 
 export async function togglePlay(): Promise<void> { await player?.togglePlay(); }
 export async function setVolume(v: number): Promise<void> { await player?.setVolume(v); }
+export async function nextTrack(): Promise<void> { await player?.nextTrack(); }
+export async function previousTrack(): Promise<void> { await player?.previousTrack(); }
+export async function setShuffle(on: boolean): Promise<void> {
+  if (!deviceId) return;
+  const res = await api(`/me/player/shuffle?state=${on}&device_id=${encodeURIComponent(deviceId)}`, { method: 'PUT' });
+  if (!res.ok && res.status !== 204) throw new Error(`Shuffle failed (${res.status})`);
+}
 
 export function disconnectPlayer(): void {
   player?.disconnect();
   player = null; deviceId = null;
-  listeners = new Set();
+  listeners.forEach((fn) => fn(null));
 }

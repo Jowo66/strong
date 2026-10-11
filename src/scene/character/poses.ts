@@ -27,6 +27,7 @@ export interface PoseContext {
   variant: number;       // stable per member, 0..1
   reduced: boolean;
   carry?: boolean;       // crew carrying a plank
+  music?: boolean;       // something's playing: idle members bob their heads
 }
 
 const PI = Math.PI;
@@ -479,6 +480,7 @@ function basePose(ctx: PoseContext): Pose {
 function idlePose(p: Pose, ctx: PoseContext): Pose {
   const { t, variant, reduced } = ctx;
   const m = reduced ? 0.35 : 1;
+  if (ctx.music && variant > 0.35) p.head = [Math.abs(Math.sin(t * Math.PI * 2)) * 0.14 * m, 0, 0]; // nodding along
   p.hips[1] = HIP_Y - 0.004 + Math.sin(t * 1.6) * 0.006 * m;
   p.spine = [Math.sin(t * 1.6) * 0.015 * m, 0, 0];
   if (ctx.resting && (ctx.stationType === 'bench' || ctx.stationType === 'cable')) {
@@ -506,6 +508,7 @@ function idlePose(p: Pose, ctx: PoseContext): Pose {
       p.armR = [-1.2, 0, 0.3]; p.foreR = [-1.8, 0, 0];
       break;
   }
+  if (ctx.music && variant > 0.35 && k !== 2) p.head = [Math.abs(Math.sin(t * Math.PI * 2)) * 0.14 * m, 0, 0];
   return p;
 }
 

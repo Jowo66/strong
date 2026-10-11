@@ -106,7 +106,12 @@ export class SimEngine {
   /** Recent humour beats: category and which line (for variety checks). */
   beats: { cat: string; key: string; at: number }[] = [];
   private lineUses = new Map<string, number[]>();
+  private lineLast = new Map<string, number[]>();
+  private linePicks = 0;
   private pendingSays: { id: string; text: string; at: number; ttl: number }[] = [];
+  private sfxListeners = new Set<(kind: string, pos?: Vec2) => void>();
+  /** Something is playing through the wall speakers (members nod along, the odd "this song 🔥"). */
+  music = false;
   private acc = 0;
   private quiet = false; // suppresses per-event feed lines during catch-up
   private eventAcc = 0;
@@ -128,6 +133,7 @@ export class SimEngine {
         const a = this.agents.get(change.record.holderId);
         if (a && change.kind === 'won') {
           a.banner = { text: `⭐ ${titleLabel(c, change.record)}`, ttl: 5 };
+          this.sfx('fanfare', a.pos);
           for (const other of this.agentsNear(a.pos, 6, a.npcId)) if (this.rng.chance(0.4)) this.say(other, this.line('title.react', c.dialogue.title.react));
         }
       },
@@ -164,6 +170,17 @@ export class SimEngine {
     while (this.acc >= STEP) { this.step(STEP); this.acc -= STEP; }
   }
 
+  /** Sound effects, with where they happened. The renderer turns these into synthesised audio. */
+  onSfx(fn: (kind: string, pos?: Vec2) => void): () => void {
+    this.sfxListeners.add(fn);
+    return () => { this.sfxListeners.delete(fn); };
+  }
+
+  private sfx(kind: string, pos?: Vec2): void {
+    if (this.quiet) return;
+    for (const fn of this.sfxListeners) fn(kind, pos);
+  }
+
   subscribeFeed(fn: (f: FeedItem) => void): () => void {
     this.feedListeners.add(fn);
     return () => this.feedListeners.delete(fn);
@@ -183,6 +200,7 @@ export class SimEngine {
     a.aura = this.c.aura.durationSeconds;
     a.react = this.c.aura.durationSeconds;
     a.anim = 'powerUp';
+    this.sfx('whoosh', a.pos);
     for (const other of this.agentsNear(a.pos, 5, a.npcId)) if (this.rng.chance(0.5)) this.say(other, this.rng.pick(['!?', 'Whoa.', '*shields eyes*']));
     return true;
   }
@@ -399,7 +417,7 @@ export class SimEngine {
       npcId: npc.id, state: 'walking', pos: { ...L.entrance }, facing: Math.PI, path: [], after: null, afterTimer: null,
       timer: 0, routine: npc.isPlayer && this.save.playerMode === 'manual' ? [] : generateRoutine(this.c, npc, this.rng), index: 0, setsDone: 0, stationId: null, waitTime: 0,
       lockerSpot: this.freeLocker(), outfit: 'street', anim: 'walk', bubble: null, interactionId: null,
-      paused: null, aura: 0, react: 0,
+      paused: null, aura: 0, react: 0, visitDay: this.save.day,
     };
     this.agents.set(npc.id, a);
     this.goTo(a, L.checkInSpot, 'checkIn');
@@ -571,6 +589,7 @@ export class SimEngine {
       case 'checkIn':
         a.timer = 1.2;
         a.facing = Math.PI;
+        this.sfx('beep', a.pos);
         if (this.rng.chance(0.35)) this.say(a, this.line('checkIn', this.c.dialogue.checkIn));
         break;
       case 'changing':
@@ -578,6 +597,7 @@ export class SimEngine {
         // face the locker: the open door screens the member from the room while they change
         a.timer = 2.5;
         a.facing = a.lockerSpot.x < -13.5 ? -Math.PI / 2 : Math.PI;
+        this.sfx('locker', a.pos);
         a.lastStationId = null;
         break;
       case 'waiting': {
@@ -588,6 +608,7 @@ export class SimEngine {
       }
       case 'break': {
         a.timer = timer ?? 3;
+        if (a.breakKind === 'chalk') this.sfx('chalk', a.pos);
         const L = this.c.layout;
         const look = a.breakKind === 'water' ? L.waterCooler : a.breakKind === 'mirror' ? { x: a.pos.x, z: L.mirror.z } : a.breakKind === 'chalk' ? { x: a.pos.x - 0.1, z: a.pos.z - 1 } : null;
         if (look) a.facing = Math.atan2(look.x - a.pos.x, look.z - a.pos.z);
@@ -676,7 +697,7 @@ export class SimEngine {
 
   private chooseStation(a: Agent): void {
     if (a.index >= a.routine.length) {
-      if (this.isManualPlayer(a) && !this.closing && !a.headingHome) { this.awaitPick(a); return; }
+      if (this.isManualPlayer(a) && !this.closing && a.visitDay === this.save.day && !a.headingHome) { this.awaitPick(a); return; }
       this.finishVisit(a);
       return;
     }
@@ -780,7 +801,7 @@ export class SimEngine {
     const npc = this.save.members[a.npcId];
     const ex = this.c.exerciseById[a.routine[a.index].exerciseId];
     const ev = this.c.events;
-    if (this.rng.chance(ev.grunt.perTrigger * (npc.traits.includes('grunter') ? 1 : 0))) this.say(a, this.line('grunt', this.c.dialogue.grunt), 1.2);
+    if (this.rng.chance(ev.grunt.perTrigger * (npc.traits.includes('grunter') ? 1 : 0))) { this.say(a, this.line('grunt', this.c.dialogue.grunt), 1.2); this.sfx('grunt', a.pos); }
     if (a.setsDone === 0 && ex.photoOp && ex.weight && this.rng.chance(ev.photoOp.perTrigger * this.mod(npc, 'photoOp'))) {
       const w = Math.round(((npc.weights[ex.id] ?? 0) * 1.6) / 5) * 5;
       this.say(a, this.line('photoOp', this.c.dialogue.photoOp), 2.5);
@@ -808,6 +829,9 @@ export class SimEngine {
     const item = a.routine[a.index];
     a.setsDone += 1;
     a.warmup = false;
+    const stType = this.station(a.stationId)?.type;
+    if (stType === 'bench' || stType === 'squatRack' || stType === 'platform') this.sfx('clank', a.pos);
+    else if (stType === 'dumbbells') this.sfx('dumbbell', a.pos);
     if (a.setsDone < item.sets) {
       const npc = this.save.members[a.npcId];
       npc.stats.restSeconds += item.restSeconds;
@@ -834,9 +858,11 @@ export class SimEngine {
         a.aura = this.c.aura.durationSeconds;
         a.auraGold = true;
         this.say(a, '✨ GOLDEN PR ✨', 3);
+        this.sfx('whoosh', a.pos); this.sfx('fanfare', a.pos);
         recordMoment(this.chronicle, a.npcId, 'goldenPr', { zone, detail: `${LIFT_LABEL[pr.lift]} ${pr.weight}`, witnesses: this.witnesses(a) });
       }
       const witnesses: string[] = [];
+      let pretended = false;
       for (const other of this.agentsNear(a.pos, this.c.events.prReaction.radius, a.npcId)) {
         if (other.state === 'interacting') continue;
         witnesses.push(other.npcId);
@@ -845,14 +871,20 @@ export class SimEngine {
           // rivals never clap
           this.say(other, this.line('rival.pr', this.c.dialogue.rival.pr), 2.4); other.anim = 'doubleTake'; other.react = 1.4;
         } else if (r < this.c.events.prReaction.clap) { this.say(other, this.line('pr.clap', this.c.dialogue.pr.clap)); other.anim = 'clap'; other.react = 1.6; }
-        else if (r < this.c.events.prReaction.clap + this.c.events.prReaction.pretend) { this.say(other, this.line('pr.pretend', this.c.dialogue.pr.pretend), 2.4); other.anim = 'pretend'; other.react = 2; }
+        else if (!pretended && r < this.c.events.prReaction.clap + this.c.events.prReaction.pretend) {
+          // one person per PR pretends not to watch; that's the joke
+          pretended = true;
+          this.say(other, this.line('pr.pretend', this.c.dialogue.pr.pretend), 2.4); other.anim = 'pretend'; other.react = 2;
+        }
       }
+      if (witnesses.length) this.sfx('clap', a.pos);
       recordMoment(this.chronicle, a.npcId, 'pr', { zone, witnesses, detail: `${LIFT_LABEL[pr.lift]} ${pr.weight}` });
     }
     if (st && item.exerciseId === 'deadlift' && (npc.weights.deadlift ?? 0) >= 225 && this.rng.chance(this.c.events.heavyDrop.chance)) {
       // a heavy drop from the top: the whole room jumps
       const w = Math.round(npc.weights.deadlift / 5) * 5;
       this.say(a, this.line('heavyDrop.boom', this.c.dialogue.heavyDrop.boom), 1.8);
+      this.sfx('boom', a.pos);
       let n = 0;
       for (const o of this.agentsNear(a.pos, 9, a.npcId)) {
         if (o.interactionId || o.state === 'lifting') continue;
@@ -878,10 +910,10 @@ export class SimEngine {
     if (!this.startBreak(a, st)) this.enter(a, 'choosing');
   }
 
-  /** Regulars greet each other by name when they come out of the locker room. */
+  /** Members who know each other's names greet each other when they come out of the locker room. */
   private greetFriends(a: Agent): void {
     const d = this.c.dialogue.greet;
-    const friend = this.agentsNear(a.pos, 9, a.npcId).find((o) => !o.interactionId && !o.bubble && this.knows(a.npcId, o.npcId, 3));
+    const friend = this.agentsNear(a.pos, 9, a.npcId).find((o) => !o.interactionId && !o.bubble && this.knows(a.npcId, o.npcId, 2));
     if (!friend) return;
     this.say(a, this.line('greet.hello', d.hello, { you: this.firstName(friend.npcId) }), 2.2);
     this.sayLater(friend, this.line('greet.reply', d.reply, { you: this.firstName(a.npcId) }), 1.1);
@@ -914,7 +946,8 @@ export class SimEngine {
 
   private finishVisit(a: Agent): void {
     const npc = this.save.members[a.npcId];
-    if (npc.isPlayer && !this.closing && !a.headingHome && this.save.playerMode !== 'manual') {
+    // autopilot keeps the player going until closing (but a visit that ran past midnight ends)
+    if (npc.isPlayer && !this.closing && a.visitDay === this.save.day && !a.headingHome && this.save.playerMode !== 'manual') {
       a.routine = generateRoutine(this.c, npc, this.rng);
       a.index = 0;
       this.goTo(a, this.rng.pick(this.c.layout.wanderPoints), 'choosing');
@@ -970,6 +1003,13 @@ export class SimEngine {
 
   private rollSocialEvents(): void {
     this.rollRecognition();
+    if (this.music) {
+      for (const a of this.agents.values()) {
+        if (!this.available(a) || a.react > 0 || !this.rng.chance(0.006)) continue;
+        this.say(a, this.line('music', this.c.dialogue.music), 2.4);
+        a.anim = 'nod'; a.react = 2.5;
+      }
+    }
     const ev = this.c.events;
     const resting = [...this.agents.values()].filter((a) => this.available(a));
     for (const a of resting) {
@@ -1126,6 +1166,7 @@ export class SimEngine {
         } else {
           this.familiarity(a.npcId, b.npcId, 0.5);
           recordMoment(this.chronicle, a.npcId, 'flirtFail', { zone: this.zoneAt(a.pos), otherId: b.npcId, witnesses: this.witnesses(a) });
+          this.sfx('scratch', a.pos);
         }
         this.endInteraction(it);
         return;
@@ -1343,6 +1384,7 @@ export class SimEngine {
         case 'working': {
           const before = job.timer;
           job.timer -= h;
+          if (Math.floor(before / 0.45) !== Math.floor(job.timer / 0.45)) this.sfx('hammer', job.crew[this.rng.int(0, job.crew.length - 1)].pos);
           if (job.gag === 'backwards' && st && before > 3 && job.timer <= 3) { st.rot -= Math.PI; this.crewSay(job.crew[0], d.backwards[job.gagLine ?? 0][1]); }
           if (job.gag === 'backwards' && job.kind === 'podium' && this.ceremony && before > 3 && job.timer <= 3) { this.ceremony.podiumRot = 0; this.crewSay(job.crew[0], d.backwards[job.gagLine ?? 0][1]); }
           if (job.timer > 0) break;
@@ -1599,14 +1641,7 @@ export class SimEngine {
           callIn(a, spot.pos, spot.h > 0);
           this.say(a, "Oh! That's me!", 2);
         }
-        const p = this.c.layout.podium;
-        for (const a of this.agents.values()) {
-          if (cer.called.filter((id) => !isWinner(id)).length >= cfg.crowd) break;
-          if (cer.called.includes(a.npcId) || isWinner(a.npcId) || !this.interruptible(a)) continue;
-          const n = cer.called.filter((id) => !isWinner(id)).length;
-          const spot = this.nav.nearestFree({ x: p.x + 2.1 + (n % 2) * 0.75, z: p.z - 1.5 + (Math.floor(n / 2) % 4) * 1.0 });
-          callIn(a, spot, false);
-        }
+        this.recruitCrowd(cer, callIn, isWinner);
         const present = cer.winners.filter((w) => this.agents.has(w.npcId));
         const winnersUp = present.filter((w) => cer.called.includes(w.npcId) && arrived(w.npcId));
         const everyoneHere = present.length > 0 && winnersUp.length === present.length;
@@ -1616,6 +1651,7 @@ export class SimEngine {
         return;
       }
       case 'posing':
+        this.recruitCrowd(cer, callIn, isWinner);
         cer.timer -= h;
         if (cer.timer <= 0) {
           cer.stage = 'speech';
@@ -1629,11 +1665,31 @@ export class SimEngine {
         }
         return;
       case 'speech':
+        this.recruitCrowd(cer, callIn, isWinner);
         cer.timer -= h;
         if (cer.timer <= 0) this.closeCeremony(cer);
         return;
       case 'closing':
         return;
+    }
+  }
+
+  /** Up to `crowd` free members come over to watch; latecomers start clapping as soon as they arrive. */
+  private recruitCrowd(cer: Ceremony, callIn: (a: Agent, to: Vec2, stepOn: boolean) => void, isWinner: (id: string) => boolean): void {
+    const cfg = this.c.events.ceremony;
+    const p = this.c.layout.podium;
+    for (const a of this.agents.values()) {
+      if (cer.called.filter((id) => !isWinner(id)).length >= cfg.crowd) break;
+      if (cer.called.includes(a.npcId) || isWinner(a.npcId) || !this.interruptible(a)) continue;
+      const n = cer.called.filter((id) => !isWinner(id)).length;
+      callIn(a, this.nav.nearestFree({ x: p.x + 2.1 + (n % 2) * 0.75, z: p.z - 1.5 + (Math.floor(n / 2) % 4) * 1.0 }), false);
+    }
+    if (cer.stage !== 'posing' && cer.stage !== 'speech') return;
+    for (const id of cer.called) {
+      const a = this.agents.get(id);
+      if (!a || isWinner(id) || a.state !== 'interacting' || a.path.length || a.anim === 'clap') continue;
+      a.facing = Math.atan2(p.x - a.pos.x, p.z - a.pos.z);
+      a.anim = 'clap';
     }
   }
 
@@ -1662,6 +1718,7 @@ export class SimEngine {
     }
     const host = this.jobs.find((j) => j.kind === 'podium')?.crew[0];
     if (host) this.crewSay(host, this.rng.pick(d.host), 3);
+    this.sfx('fanfare', this.c.layout.podium);
   }
 
   private closeCeremony(cer: Ceremony): void {
@@ -1737,18 +1794,22 @@ export class SimEngine {
 
   /** Index of the least-used entry in a pool (ties random), among entries `ok` allows. -1 if none. */
   private pickIndex(cat: string, n: number, ok?: (i: number) => boolean): number {
-    let uses = this.lineUses.get(cat);
-    if (!uses || uses.length !== n) { uses = new Array<number>(n).fill(0); this.lineUses.set(cat, uses); }
+    let uses = this.lineUses.get(cat), last = this.lineLast.get(cat);
+    if (!uses || uses.length !== n || !last) { uses = new Array<number>(n).fill(0); last = new Array<number>(n).fill(-1); this.lineUses.set(cat, uses); this.lineLast.set(cat, last); }
     let min = Infinity;
-    const cands: number[] = [];
+    let cands: number[] = [];
     for (let i = 0; i < n; i++) {
       if (ok && !ok(i)) continue;
-      if (uses[i] < min) { min = uses[i]; cands.length = 0; }
+      if (uses[i] < min) { min = uses[i]; cands = []; }
       if (uses[i] === min) cands.push(i);
     }
     if (!cands.length) return -1;
-    const i = this.rng.pick(cands);
+    // among the least-used, prefer the ones used longest ago, so a line never comes straight back after a cycle
+    const l = last;
+    cands.sort((p, q) => l[p] - l[q]);
+    const i = this.rng.pick(cands.slice(0, Math.ceil(cands.length / 2)));
     uses[i]++;
+    last[i] = ++this.linePicks;
     if (HUMOUR.has(cat)) {
       this.beats.push({ cat, key: `${cat}#${i}`, at: this.simTime });
       if (this.beats.length > 500) this.beats.shift();

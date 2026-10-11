@@ -67,6 +67,21 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) 
         <input type="range" min={0.85} max={1.4} step={0.05} value={s.uiScale} onChange={(e) => s.set({ uiScale: Number(e.target.value) })} />
       </label>
 
+      <h3>Sound</h3>
+      <p className="muted small">Every sound is made in your browser; nothing plays until you click somewhere.</p>
+      <label className="row check"><input type="checkbox" checked={s.muted} onChange={(e) => s.set({ muted: e.target.checked })} /> Mute everything</label>
+      <label className="row">Master volume
+        <input type="range" min={0} max={1} step={0.05} value={s.masterVolume} onChange={(e) => s.set({ masterVolume: Number(e.target.value) })} />
+      </label>
+      <label className="row check"><input type="checkbox" checked={s.sfxOn} onChange={(e) => s.set({ sfxOn: e.target.checked })} /> Sound effects (clanks, beeps, claps, the crew)</label>
+      <label className="row">Effects volume
+        <input type="range" min={0} max={1} step={0.05} value={s.sfxVolume} disabled={!s.sfxOn} onChange={(e) => s.set({ sfxVolume: Number(e.target.value) })} />
+      </label>
+      <label className="row check"><input type="checkbox" checked={s.ambienceOn} onChange={(e) => s.set({ ambienceOn: e.target.checked })} /> Gym ambience (murmur and distant clanks; louder when busy)</label>
+      <label className="row">Ambience volume
+        <input type="range" min={0} max={1} step={0.05} value={s.ambienceVolume} disabled={!s.ambienceOn} onChange={(e) => s.set({ ambienceVolume: Number(e.target.value) })} />
+      </label>
+
       <h3>🔄 Reshuffle members</h3>
       <p className="muted">Soft refresh keeps regulars (with their titles and stories) and replaces occasional visitors. Hard refresh replaces everyone.</p>
       {!confirm && (

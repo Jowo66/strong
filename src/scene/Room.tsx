@@ -11,6 +11,9 @@ import { useUi } from '../store/ui';
 import { Kit, kitMaterial } from './kit';
 import { portraitFor } from './portraits';
 import { lookForNpc } from './character/look';
+import { useSettings } from '../store/settings';
+import { useMusic } from '../store/music';
+import { radioBeat } from '../audio/sound';
 
 const WALL = '#F3EDE2', WALL_HC = '#FFFFFF', TRIM = '#D8CCB8', SKIRT = '#A68A64';
 const FLOOR_KIND: Record<ZoneId, FloorKind> = {
@@ -223,8 +226,22 @@ const speakerGeo = (() => {
   return k.build();
 })();
 
+/** Wall speaker: the cone pulses on the beat while Gym Radio or Spotify is playing. */
 function Speaker() {
-  return <mesh geometry={speakerGeo} material={kitMaterial} castShadow />;
+  const cone = useRef<THREE.Mesh>(null!);
+  const reduced = useSettings((s) => s.reducedMotion);
+  useFrame((state) => {
+    const m = useMusic.getState();
+    const beat = radioBeat() ?? (m.spotifyPlaying ? (state.clock.elapsedTime * 2) % 1 : null); // ~120 bpm for Spotify
+    const pulse = beat === null ? 0 : Math.pow(1 - beat, 3) * (reduced ? 0.04 : 0.16);
+    cone.current.scale.set(1 + pulse, 1 + pulse, 1 + pulse * 3);
+  });
+  return (
+    <group>
+      <mesh geometry={speakerGeo} material={kitMaterial} castShadow />
+      <mesh ref={cone} position={[0, 0.15, 0.2]} rotation-x={Math.PI / 2}><cylinderGeometry args={[0.15, 0.19, 0.04, 20]} /><meshStandardMaterial color="#343A40" roughness={0.5} /></mesh>
+    </group>
+  );
 }
 
 const doorGeo = new THREE.BoxGeometry(0.03, 1.7, 0.56);

@@ -13,6 +13,7 @@ import { hashString } from './character/look';
 import { BONES, boneInverses, buildCharacterGeometry, createBones, dumbbellGeometry, rigDims } from './character/rig';
 import { blendPose, computePose, propForPose, restPose, type Pose, type PoseContext, type Prop } from './character/poses';
 import { platesFor, PLATE_COLOURS, PLATE_RADIUS } from './plates';
+import { musicPlaying } from '../store/music';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export interface AvatarSource {
@@ -161,7 +162,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     // --- pose ---
     const c = ctx.current;
     c.anim = a.anim; c.exercise = a.exercise; c.resting = a.resting; c.stationType = a.stationType;
-    c.t = state.clock.elapsedTime + phase; c.reduced = reducedMotion; c.carry = a.carry === 'plank';
+    c.t = state.clock.elapsedTime + phase; c.reduced = reducedMotion; c.carry = a.carry === 'plank'; c.music = musicPlaying();
     const target = computePose(c);
     blendPose(pose.current, target, Math.min(1, dt * 14));
     const p = pose.current, B = rig.byName, R = rig.dims.rest;

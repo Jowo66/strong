@@ -62,7 +62,7 @@
   "flexOff": {
     "start": ["...", "Oh, it's ON.", "Mirror. Now.", "You. Me. Mirror.", "*cracks knuckles*"],
     "winner": ["Undefeated.", "As expected.", "Too easy.", "The mirror has spoken.", "*bows*"],
-    "loser": ["Rematch.", "The lighting was off.", "I had a pump issue.", "I wasn't warmed up.", "My good side was facing away."],
+    "loser": ["Rematch.", "The lighting was off.", "I had a pump issue.", "I wasn't warmed up.", "My good side was facing away.", "Best of three?", "I'm saving my pump for later.", "Rigged.", "The mirror's biased."],
     "mutual": [
       ["Respect.", "Respect."],
       ["Looking strong.", "You too, honestly."],
@@ -89,7 +89,7 @@
   "pr": {
     "lifter": ["PR!!", "LET'S GOOO!", "New personal record!", "I'm telling my mum.", "*screams internally*", "THE BAR BLINKED."],
     "clap": ["👏", "Nice!", "Beast.", "LET'S GO!", "That's huge.", "Respect!"],
-    "pretend": ["*definitely not watching*", "*ties shoelace intently*", "*studies the ceiling*", "*suddenly needs water*", "*reads the poster carefully*", "*checks phone very hard*"]
+    "pretend": ["*definitely not watching*", "*ties shoelace intently*", "*studies the ceiling*", "*suddenly needs water*", "*reads the poster carefully*", "*checks phone very hard*", "*inspects a dumbbell closely*", "*whistles at nothing*", "*pretends to stretch*"]
   },
   "lostBottle": {
     "start": ["Where's my bottle?", "Has anyone seen a bottle?", "My bottle!", "Bottle? Bottle!", "Not again.", "Who took my water?!", "It was RIGHT here.", "*pats every pocket*"],
@@ -135,7 +135,7 @@
   },
   "recognition": {
     "nod": ["*nods respectfully*", "*respectful nod*", "*tiny salute*", "*nods slowly, impressed*", "*tips water bottle*", "*approving eyebrows*"],
-    "doubleTake": ["Wait, is that {name}?", "…{name}?!", "*double take*", "Is that THE {name}?", "*whispers* that's {name}.", "*looks twice at {name}*"],
+    "doubleTake": ["Wait, is that {name}?", "…{name}?!", "*double take*", "Is that THE {name}?", "*whispers* that's {name}.", "*looks twice at {name}*", "Hold on. {name}?", "*nudges a friend* {name}!", "*stops mid-sip* ...{name}."],
     "imitate": ["*copies {name}'s pose*", "*tries the {name} pose*", "*practises {name}'s flex in the mirror*", "*attempts {name}'s signature pose. Pulls something.*"]
   },
   "_notes": "Lines are picked least-recently-used, so a joke only repeats after the rest of its pool has had a turn. Placeholders: {you} = the person spoken to, {me} = the speaker, {exercise} = the speaker's current exercise, {rival} = the speaker's rival, {title} = the listener's featured title. A line that needs a placeholder the situation can't fill is never picked.",
@@ -149,7 +149,7 @@
     "reply": ["{you}! 👋", "Hey hey, {you}.", "Morning, {you}!", "*fist bump*", "{you}! Let's get it."]
   },
   "workIn": {
-    "ask": ["Can I work in?", "Mind if I jump in between sets?", "Can I work in with you?", "Working in?", "Room for one more?", "Mind if I alternate with you?", "How many sets left? Can I hop in?", "Share the bench?"],
+    "ask": ["Can I work in?", "Mind if I jump in between sets?", "Can I work in with you?", "Working in?", "Room for one more?", "Mind if I alternate with you?", "How many sets left? Can I hop in?", "Share the bench?", "Mind if I sneak a set in?", "Can I jump in when you rest?"],
     "yes": ["Sure, go ahead.", "Yeah! I'll be quick.", "Of course. I'll cut a set.", "Sure thing, I'm almost done.", "Go for it.", "Absolutely, jump in."],
     "no": ["I've got... six more sets.", "I'm in the zone, sorry.", "Superset. Ten more minutes.", "Just one more set. Probably four.", "I'm mid-drop-set.", "Give me... a while."]
   },
@@ -168,5 +168,6 @@
   "warmup": {
     "start": ["Just a quick warm-up.", "Warm-up set, won't be long.", "Easy one to start.", "Just getting the blood flowing.", "Two minutes, tops."],
     "still": ["Still warming up.", "Almost warm.", "Getting there.", "Warm-up... continues.", "This is the warm-up."]
-  }
+  },
+  "music": ["This song 🔥", "TUNE.", "*nods along*", "Who's on aux? Legend.", "*air drums*", "Turn it up!", "*lip syncs dramatically*", "This is my PR song.", "*taps foot between sets*"]
 }

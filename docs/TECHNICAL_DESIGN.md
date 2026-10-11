@@ -452,6 +452,15 @@ The flow is **Authorization Code with PKCE**, so no client secret is needed and 
 
 ---
 
+## 16b. Sound (M7)
+
+`src/audio/sound.ts` builds everything with Web Audio: an `AudioContext` created on the first click or key press (autoplay rules), buses `sfx`, `ambience` and `music` into `master`, then a limiter.
+
+- **Effects.** The engine emits events (`engine.onSfx(kind, pos)`): `clank` (barbell set ends), `dumbbell`, `beep` (check-in), `locker`, `grunt`, `clap` (PRs with witnesses), `hammer` (crew, every 0.45 s), `fanfare` (titles, ceremony), `whoosh` (aura), `scratch` (failed flirt), `boom` (heavy drop), `chalk`. Each is a few oscillators and filtered noise, panned by its x offset from the camera target and quieter with distance. Nothing is emitted during catch-up.
+- **Ambience.** Looped band-passed noise whose level follows how many members are inside, plus distant clanks and thuds; off by default.
+- **Gym Radio.** A look-ahead step sequencer (25 ms timer, 0.12 s window) playing three original four-bar loops (drums, bass, chords; lo-fi swing). `radioBeat()` drives the speaker pulse.
+- **Music state.** `store/music.ts` knows whether Spotify or the radio is playing; it sets `engine.music` (members nod along and sometimes comment) and pulses the speaker cones.
+
 ## 17. Deployment
 
 - `vite.config.ts`: `base: '/strong/'`.

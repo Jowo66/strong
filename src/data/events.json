@@ -1,7 +1,7 @@
 {
   "_notes": "Base chances. 'perSecond' events are rolled once per sim second per eligible member; others are rolled once per trigger.",
   "conversation": { "perSecond": 0.015, "radius": 4.0, "lineSeconds": 1.8 },
-  "flirt": { "perSecond": 0.0035, "radius": 5.0, "lineSeconds": 1.8 },
+  "flirt": { "perSecond": 0.005, "radius": 5.0, "lineSeconds": 1.8 },
   "flexOff": {
     "perSecond": 0.005,
     "radius": 7.0,
@@ -11,7 +11,7 @@
     "outcomes": { "winner": 0.45, "mutual": 0.25, "bothWon": 0.2, "laugh": 0.1 }
   },
   "spot": {
-    "perTrigger": 0.1,
+    "perTrigger": 0.15,
     "radius": 6.0,
     "outcomes": { "success": 0.65, "overenthusiastic": 0.35 }
   },
@@ -35,18 +35,15 @@
   "longWarmup": { "chance": 0.1, "extraSeconds": 20 },
   "waitBeforeBuild": 3,
   "recognition": {
-    "_notes": "Members near a title holder sometimes react: a nod, a double take, or (for the Mirror Champion) copying the pose. Rolled once per second per nearby pair; each pair at most once a minute.",
-    "perSecond": 0.05,
+    "_notes": "Members near a title holder sometimes react: a nod, a double take, or (for the Mirror Champion) copying the pose. Rolled once per second per nearby pair; each pair at most once every two minutes.",
+    "perSecond": 0.03,
     "radius": 3.5,
-    "cooldown": 60,
+    "cooldown": 120,
     "kinds": { "nod": 0.5, "doubleTake": 0.35, "imitate": 0.15 }
   },
   "ceremony": {
-    "startAt": 0.12,
-    "winnersArrive": [
-      0.04,
-      0.09
-    ],
+    "startAt": 0.2,
+    "winnersArrive": [0.11, 0.16],
     "gatherSeconds": 45,
     "minGatherSeconds": 10,
     "poseSeconds": 7,

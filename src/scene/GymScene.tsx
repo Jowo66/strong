@@ -15,6 +15,7 @@ import { Kit, kitMaterial } from './kit';
 import { labelTexture } from './labels';
 import { bakePending } from './portraits';
 import { useUi } from '../store/ui';
+import { setListener } from '../audio/sound';
 
 const CREW_LOOKS = [0, 1, 2].map(lookForCrew);
 
@@ -41,6 +42,13 @@ function memberSource(eng: SimEngine, id: string): () => AvatarSource | undefine
 }
 
 /** ?debug: expose the renderer for console poking and automated screenshots (draw calls, camera). */
+/** The audio "ears" follow the camera target, so nearby clanks are louder and panned. */
+function AudioListener() {
+  const controls = useThree((s) => s.controls) as unknown as { target: THREE.Vector3 } | null;
+  useEffect(() => { if (controls) setListener(() => ({ x: controls.target.x, z: controls.target.z })); }, [controls]);
+  return null;
+}
+
 export function DebugHook() {
   const three = useThree();
   useEffect(() => {
@@ -243,6 +251,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Podium />
         <PortraitBaker />
         <FollowCam />
+        <AudioListener />
         <OrbitControls makeDefault target={[0, 0, -0.5]} enablePan={false} minDistance={14} maxDistance={120}
           minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={-0.6} maxAzimuthAngle={0.9} enableDamping />
         {(tiltShift || high) && (

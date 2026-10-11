@@ -11,8 +11,8 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M4 | Social and humour depth | ✅ Done |
 | M5 | Gym Legends: full presentation | ✅ Done |
 | M6 | The player | ✅ Done |
-| M7 | Music and sound | 🟨 Next (Spotify done) |
-| M8 | Accessibility, performance, launch | 🟨 Basics done |
+| M7 | Music and sound | ✅ Done |
+| M8 | Accessibility, performance, launch | 🟨 Next (basics done) |
 
 ---
 
@@ -111,7 +111,10 @@ Shipped: a character creator with a live 3D preview (name with a random-name but
 
 **Acceptance:** a new player can create a character, train a full routine by choice, and see their progress chart after three in-game days.
 
-## M7 — Music and sound
+## M7 — Music and sound ✅
+
+Shipped: all audio is synthesised in the browser (`src/audio/sound.ts`), so there are no sound files or licences to track. **Gym Radio** has three original looping stations (Lo-fi Lifts 86 bpm, Pump FM 124, Cardio Bounce 140) through the wall speakers, for anyone without Spotify. Spotify gains previous/next, shuffle and volume. The speaker cones pulse on the beat (Spotify assumes 120 bpm, since its tempo data isn't available); idle members nod along, and the odd member says "This song 🔥". Sound effects come from sim events: plate clanks, dumbbell set-downs, card-reader beeps, lockers, grunts, claps, crew hammering, fanfares for titles and ceremonies, the aura whoosh, a record scratch for failed flirts, the heavy-drop boom and chalk. They're panned and attenuated around the camera, with a limiter on the output. Settings has master volume, mute, effects on/off and volume, and gym ambience (murmur and distant clanks that grow with the crowd; off by default). **Checked in headless Chrome:** start a station, close the window, and the radio keeps playing with the speakers pulsing; switching effects off mutes only the effects bus. Spotify sign-in itself needs a real Premium account to check.
+
 
 Spotify playback via the wall speakers is already implemented (PKCE + Web Playback SDK, playlists, play/pause; the music continues when the window closes).
 

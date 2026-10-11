@@ -204,6 +204,7 @@ export interface Agent {
   awaitingPick?: boolean;        // manual player waiting for the next exercise
   preferStation?: string | null; // the player clicked this station
   headingHome?: boolean;
+  visitDay?: number;             // the day this visit started
 }
 
 export interface Station {

@@ -229,3 +229,14 @@ button .icon + .label { margin-left: 2px; }
 .creator .row > span { display: block; }
 .btns button.cta { background: #C0583C; border-color: #C0583C; color: #fff; }
 .hc .btns button.cta { background: #000; border-color: #000; }
+
+/* music window */
+.stations { display: flex; flex-direction: column; gap: 6px; }
+.stations button { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 700; cursor: pointer; text-align: left; }
+.stations button span { margin-left: auto; }
+.stations button.on { background: var(--ink); color: #fff; }
+.stations button.on .muted { color: rgba(255,255,255,.7); }
+.transport { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
+.transport button { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: #fff; display: grid; place-items: center; cursor: pointer; }
+.transport button.on { background: var(--ink); color: #fff; }
+.transport .play { width: 48px; height: 48px; background: #1DB954; color: #fff; border-color: #1DB954; }
