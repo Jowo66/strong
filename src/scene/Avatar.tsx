@@ -90,6 +90,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const eng = useEngine();
   const setHovered = useUi((s) => s.setHovered);
   const openProfile = useUi((s) => s.openProfile);
+  const focused = useUi((s) => s.hovered === id && s.keyboardFocus === id);
   const reducedMotion = useSettings((s) => s.reducedMotion);
   const auraId = useSettings((s) => s.auraColour);
   const pickedHex = eng.c.aura.colours.find((c) => c.id === auraId)?.hex ?? '#FFC93C';
@@ -334,6 +335,9 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       onPointerOut={hoverable ? () => setHovered(null) : undefined}
       onClick={hoverable ? (e) => { e.stopPropagation(); openProfile(id); } : undefined}>
       {hoverable && <mesh geometry={hitGeo} visible={false} />}
+      {focused && (
+        <mesh rotation-x={-Math.PI / 2} position-y={0.025}><ringGeometry args={[0.55, 0.68, 32]} /><meshBasicMaterial color="#1B6EF3" /></mesh>
+      )}
       {isPlayer && (
         <mesh rotation-x={-Math.PI / 2} position-y={0.02}><ringGeometry args={[0.42, 0.52, 28]} /><meshBasicMaterial color={pickedHex} transparent opacity={0.9} /></mesh>
       )}

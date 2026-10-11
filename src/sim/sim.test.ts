@@ -11,6 +11,7 @@ import { SimEngine, STEP } from './engine';
 import type { SaveData } from './types';
 import { footprint, inside, overlaps } from './footprint';
 import { NavGrid, approachPoint } from './nav';
+import { migrateSave } from '../store/migrate';
 
 const settings = { dayLength: 600, cap: 25, members: 50, mixChance: 0 };
 
@@ -69,6 +70,44 @@ describe('navigation', () => {
       expect(nav.isFree(t.p), `${t.name} at ${t.p.x},${t.p.z} is blocked`).toBe(true);
       expect(nav.findPath(start, t.p), `${t.name} is unreachable`).not.toBeNull();
     }
+  });
+});
+
+describe('saves', () => {
+  it('a healthy save migrates untouched and survives a JSON round trip', () => {
+    const save = saveWith(10);
+    const m = migrateSave(JSON.parse(JSON.stringify(save)))!;
+    expect(m.repaired).toEqual([]);
+    expect(Object.keys(m.save.members)).toHaveLength(10);
+  });
+  it('repairs missing or broken fields, drops unreadable members, and rejects things that are not saves', () => {
+    const save = JSON.parse(JSON.stringify(saveWith(6)));
+    const [a, b] = Object.keys(save.members).filter((k) => k !== 'player');
+    delete save.members[a].stats.flexOffWins;
+    save.members[a].moments = 'oops';
+    save.members[b] = { nonsense: true };
+    save.day = -3;
+    delete save.titles;
+    const m = migrateSave(save)!;
+    expect(m.repaired.length).toBeGreaterThanOrEqual(4);
+    expect(m.save.members[a].stats.flexOffWins).toBe(0);
+    expect(m.save.members[a].moments).toEqual([]);
+    expect(m.save.members[b]).toBeUndefined();
+    expect(m.save.day).toBe(0);
+    expect(m.save.titles).toEqual([]);
+    // and the engine runs on it
+    const eng = new SimEngine(c, m.save, settings, 3);
+    for (let i = 0; i < 1000; i++) eng.step(STEP);
+    expect(migrateSave(null)).toBeNull();
+    expect(migrateSave({ hello: 'world' })).toBeNull();
+    expect(migrateSave([1, 2, 3])).toBeNull();
+  });
+  it('a save without a player gets one back', () => {
+    const save = saveWith(5);
+    delete save.members.player;
+    const eng = new SimEngine(c, migrateSave(save)!.save, settings, 2);
+    eng.ensurePlayer();
+    expect(eng.player).toBeDefined();
   });
 });
 

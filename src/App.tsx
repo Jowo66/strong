@@ -15,6 +15,9 @@ import { ProfileCard } from './ui/ProfileCard';
 import { YearReview } from './ui/YearReview';
 import { PlayerPanel } from './ui/PlayerPanel';
 import { CharacterCreator } from './ui/CharacterCreator';
+import { SceneNav, useShortcuts } from './ui/SceneNav';
+import { ErrorBoundary, RecoveryScreen } from './ui/Recovery';
+import { migrateSave } from './store/migrate';
 import { useSettings } from './store/settings';
 import { useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
@@ -35,6 +38,7 @@ function boot(existing: SaveData | null): SimEngine {
   const settings = engineSettings();
   const save = existing ?? SimEngine.createSave(content, { members: settings.members, mixChance: settings.mixChance });
   const eng = new SimEngine(content, save, settings);
+  eng.ensurePlayer();
   if (existing) {
     const away = eng.daysAway();
     if (away > 0) eng.catchUp(away);
@@ -45,8 +49,19 @@ function boot(existing: SaveData | null): SimEngine {
   return eng;
 }
 
+/** Wipe the save and reload with a brand-new gym (only ever on the player's say-so). */
+function startNewGym(): void {
+  useSaveStore.getState().setSave(null);
+  setTimeout(() => location.reload(), 300);
+}
+
 export default function App() {
+  return <ErrorBoundary onNewGym={startNewGym}><Gym /></ErrorBoundary>;
+}
+
+function Gym() {
   const [engine, setEngine] = useState<SimEngine | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
   const panel = useUi((s) => s.panel);
   const uiScale = useSettings((s) => s.uiScale);
   const highContrast = useSettings((s) => s.highContrast);
@@ -57,8 +72,22 @@ export default function App() {
     // Canvas textures (floor labels, signs) need the self-hosted font before they are drawn.
     const fonts = document.fonts?.load(`900 32px "Nunito Variable"`).catch(() => undefined) ?? Promise.resolve();
     const fontTimeout = new Promise((r) => setTimeout(r, 2000));
-    void Promise.all([waitForHydration(), Promise.race([fonts, fontTimeout])]).then(() => {
-      const eng = boot(useSaveStore.getState().save);
+    const hydrated = Promise.race([waitForHydration().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))]);
+    void Promise.all([hydrated, Promise.race([fonts, fontTimeout])]).then(([ok]) => {
+      if (!ok) { setProblem('the save could not be read from this browser'); return; }
+      const raw = useSaveStore.getState().save;
+      let eng: SimEngine;
+      try {
+        const m = raw ? migrateSave(raw) : null;
+        if (raw && !m) { setProblem("the save is damaged or isn't a Mini Gym save"); return; }
+        if (m?.repaired.length) console.info('Mini Gym: repaired the save:', m.repaired);
+        eng = boot(m ? m.save : null);
+        if (m?.repaired.length) useUi.getState().showBanner(`Your save needed ${m.repaired.length} small repair${m.repaired.length === 1 ? '' : 's'}. All good now.`);
+      } catch (e) {
+        console.error(e);
+        setProblem(`it crashed while opening (${(e as Error).message})`);
+        return;
+      }
       setEngine(eng);
       // first visit: make your character
       if (!eng.save.playerCreated && !new URLSearchParams(location.search).has('lineup')) useUi.getState().openPanel('creator');
@@ -71,11 +100,23 @@ export default function App() {
     if (!engine) return;
     save();
     const id = setInterval(save, SAVE_EVERY_MS);
-    const onHide = () => { if (document.visibilityState === 'hidden') save(); };
+    // a hidden tab stops rendering, so the sim pauses; coming back runs any whole days missed (abstract catch-up)
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') { save(); return; }
+      const away = engine.daysAway();
+      if (away > 0) engine.catchUp(away);
+    };
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', save);
     return () => { clearInterval(id); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', save); };
   }, [engine, save]);
+
+  // Keyboard shortcuts: Space pause, 1/2/4 speed, A aura, H/Y/M/S panels, F follow, Esc close.
+  const onKey = useShortcuts(() => { if (engine && !engine.triggerAura()) useUi.getState().showBanner("You're not in the gym right now."); });
+  useEffect(() => {
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onKey]);
 
   // Sound: engine events become synthesised effects; the first click unlocks audio.
   useEffect(() => {
@@ -101,12 +142,13 @@ export default function App() {
     return useSettings.subscribe(() => engine.configure(engineSettings()));
   }, [engine]);
 
-  const onImport = (data: unknown) => {
-    useSaveStore.getState().setSave(data as SaveData);
-    setEngine(boot(data as SaveData));
+  const onImport = (data: SaveData) => {
+    useSaveStore.getState().setSave(data);
+    setEngine(boot(data));
   };
 
-  if (!engine) return <div className="loading">Unlocking the gym…</div>;
+  if (problem) return <RecoveryScreen problem={problem} onNewGym={startNewGym} />;
+  if (!engine) return <div className="loading" role="status">Unlocking the gym…</div>;
   if (new URLSearchParams(location.search).has('lineup')) return <Lineup engine={engine} />;
 
   return (
@@ -116,6 +158,7 @@ export default function App() {
         <TopBar />
         <Feed key={`feed-${engine.save.createdAt}`} />
         <Banner />
+        <SceneNav />
         <Tooltip />
         {panel === 'hall' && <HallOfFame />}
         {panel === 'settings' && <SettingsPanel onImport={onImport} onSave={save} />}

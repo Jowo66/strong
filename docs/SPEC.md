@@ -529,6 +529,8 @@ Music continues.
 
 Note: the Spotify redirect URI must be registered as `https://jowo66.github.io/strong/`.
 
+**Gym Radio.** The same window also offers Gym Radio: three original, synthesised stations that need no account, so the speakers work for everyone.
+
 ---
 
 # Aura System

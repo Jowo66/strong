@@ -1,9 +1,8 @@
 // The R3F scene: camera, lights, room, stations, members, construction crew and the sim driver.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
-import { EffectComposer, N8AO, TiltShift2 } from '@react-three/postprocessing';
+import { OrbitControls, PerformanceMonitor } from '@react-three/drei';
 import { EngineContext, useEngine } from '../engineContext';
 import type { SimEngine } from '../sim/engine';
 import { Room } from './Room';
@@ -16,6 +15,8 @@ import { labelTexture } from './labels';
 import { bakePending } from './portraits';
 import { useUi } from '../store/ui';
 import { setListener } from '../audio/sound';
+
+const Effects = lazy(() => import('./Effects'));
 
 const CREW_LOOKS = [0, 1, 2].map(lookForCrew);
 
@@ -108,15 +109,23 @@ function Crew() {
   );
 }
 
-/** Pull the camera back on tall/narrow screens so the whole diorama fits. */
+/**
+ * Frame the diorama for the screen. Wide screens look in from the front-right; tall (phone) screens swing round so
+ * the gym's long side runs up the screen. Fog distances follow the camera so a pulled-back view isn't washed out.
+ */
 function ResponsiveCamera() {
-  const { camera, size } = useThree();
+  const { camera, size, scene, controls } = useThree();
   useEffect(() => {
     const aspect = size.width / size.height;
-    const k = aspect >= 1.4 ? 1 : Math.min(2.4, 1.4 / aspect);
-    camera.position.set(18 * k, 26 * k, 33 * k);
+    const portrait = aspect < 0.85;
+    const az = portrait ? 1.12 : 0.5, polar = portrait ? 0.82 : 0.965;
+    const r = portrait ? Math.min(92, 46 / Math.max(0.42, aspect) * 0.72 + 20) : 45.7 * (aspect >= 1.4 ? 1 : Math.min(2.4, 1.4 / aspect));
+    camera.position.set(r * Math.sin(polar) * Math.sin(az), r * Math.cos(polar), -0.5 + r * Math.sin(polar) * Math.cos(az));
     camera.lookAt(0, 0, -0.5);
-  }, [camera, size.width, size.height]);
+    if (scene.fog instanceof THREE.Fog) { scene.fog.near = r * 1.5; scene.fog.far = r * 3.6; }
+    const oc = controls as unknown as { minAzimuthAngle: number; maxAzimuthAngle: number; update: () => void } | null;
+    if (oc) { oc.minAzimuthAngle = portrait ? 0.4 : -0.6; oc.maxAzimuthAngle = portrait ? 1.7 : 0.9; oc.update(); }
+  }, [camera, size.width, size.height, scene, controls]);
   return null;
 }
 
@@ -198,14 +207,15 @@ function FollowCam() {
   const desired = useMemo(() => new THREE.Vector3(), []), delta = useMemo(() => new THREE.Vector3(), []);
   useFrame((state, dt) => {
     const controls = state.controls as unknown as { target: THREE.Vector3; update: () => void } | null;
-    if (!follow || !controls) { engaged.current = false; return; }
-    const a = eng.playerAgent();
+    const focusId = useUi.getState().keyboardFocus;
+    if ((!follow && !focusId) || !controls) { engaged.current = false; return; }
+    const a = follow ? eng.playerAgent() : eng.agents.get(focusId!);
     if (!a) return;
     desired.set(a.pos.x, 0.8, a.pos.z);
     delta.copy(desired).sub(controls.target).multiplyScalar(Math.min(1, dt * 3));
     controls.target.add(delta);
     state.camera.position.add(delta);
-    if (!engaged.current) {
+    if (!engaged.current && follow) {
       // zoom in a little when following starts
       engaged.current = true;
       const off = state.camera.position.clone().sub(controls.target);
@@ -227,12 +237,15 @@ export function GymScene({ engine }: { engine: SimEngine }) {
   const highContrast = useSettings((s) => s.highContrast);
   const detail = useSettings((s) => s.detail);
   const high = detail === 'high';
-  const [dpr, setDpr] = useState(1.5);
-  useEffect(() => { setDpr(high ? Math.min(2, window.devicePixelRatio || 1) : 1); }, [high]);
+  // adaptive pixel ratio: start at the screen's (max 2), step down if frames drop, back up when there's headroom
+  const maxDpr = high ? Math.min(2, window.devicePixelRatio || 1) : 1;
+  const [dpr, setDpr] = useState(maxDpr);
+  useEffect(() => { setDpr(maxDpr); }, [maxDpr]);
   const shadowSize = high ? 2048 : 1024;
   return (
     <Canvas shadows dpr={dpr} camera={{ position: [18, 26, 33], fov: 30, near: 1, far: 200 }} gl={{ antialias: true }}>
       <EngineContext.Provider value={engine}>
+        <PerformanceMonitor onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))} onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))} flipflops={4} />
         <color attach="background" args={[highContrast ? '#FFFFFF' : '#F6EFE4']} />
         <fog attach="fog" args={[highContrast ? '#FFFFFF' : '#F6EFE4', 70, 160]} />
         {/* warm key light with soft shadows, cool fill from the left, warm bounce from the floor */}
@@ -254,12 +267,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <AudioListener />
         <OrbitControls makeDefault target={[0, 0, -0.5]} enablePan={false} minDistance={14} maxDistance={120}
           minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={-0.6} maxAzimuthAngle={0.9} enableDamping />
-        {(tiltShift || high) && (
-          <EffectComposer multisampling={high ? 4 : 0}>
-            {high ? <N8AO halfRes aoRadius={0.8} intensity={2.2} distanceFalloff={0.6} color="#3B2A1A" /> : <></>}
-            {tiltShift ? <TiltShift2 blur={0.1} taper={0.55} start={[0.5, 0.0]} end={[0.5, 1.0]} /> : <></>}
-          </EffectComposer>
-        )}
+        {(tiltShift || high) && <Suspense fallback={null}><Effects high={high} tiltShift={tiltShift} /></Suspense>}
       </EngineContext.Provider>
     </Canvas>
   );

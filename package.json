@@ -1,7 +1,7 @@
 {
   "name": "strong",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Mini Gym - a living fitness diorama",
   "type": "module",
   "scripts": {
@@ -24,6 +24,7 @@
     "zustand": "4.5.5"
   },
   "devDependencies": {
+    "@types/node": "20.17.6",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@types/three": "0.169.0",

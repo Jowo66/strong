@@ -1,6 +1,6 @@
 # Mini Gym — Technical Design
 
-**Live site:** https://jowo66.github.io/strong/ · **Repo:** `jowo66/strong` · **Status:** M0–M1 implemented (see [ROADMAP.md](ROADMAP.md))
+**Live site:** https://jowo66.github.io/strong/ · **Repo:** `jowo66/strong` · **Status:** M0–M8 implemented, version 1.0.0 (see [ROADMAP.md](ROADMAP.md))
 
 This document explains *how* Mini Gym works. For *what* it does, see [SPEC.md](SPEC.md). Every number quoted here comes from a JSON file in `src/data/`, so tuning never needs a code change.
 
@@ -366,7 +366,9 @@ Runtime state (agents, crew, temporary stations) is cleared, the roster is refil
 
 **Size.** About 6–8 KB per member with a full Moment log, so a 90-member gym is roughly 0.7 MB. IndexedDB handles this easily.
 
-**Versioning.** `SaveData.version` and the zustand persist `version` are both 1. Future schema changes add a `migrate(persisted, fromVersion)` to the persist options, and `isValidSave()` gates imports.
+**Versioning and repair.** `SaveData.version` is 1. Every save passes through `store/migrate.ts → migrateSave()` on load and on import: version upgrades go at the top (`if (s.version === 1) { …; s.version = 2 }`), then fields added since the save was written are filled in (missing stat counters, moment lists, yearly records, …), members that can't be read are dropped, titles of departed members are archived, and a missing player is re-created on boot (`engine.ensurePlayer()`). A save that isn't a Mini Gym save at all returns `null`.
+
+**Recovery screen.** If the save can't be read (IndexedDB doesn't answer within 6 s, the data is damaged, or the app crashes while opening it; an error boundary catches crashes anywhere), the player sees "The gym is locked" with three choices: download the raw save, try again or repair, or start a new gym. Nothing is deleted without that click. Tests cover healthy saves, damaged ones and non-saves.
 
 **Export / Import.** Settings → Backup downloads `mini-gym-YYYY-MM-DD.json` (the full snapshot). Import validates the file, replaces the save and reboots the engine.
 
@@ -398,11 +400,13 @@ Runtime state (agents, crew, temporary stations) is cleared, the roster is refil
 
 | Item | Budget | Current |
 |---|---|---|
-| Members on screen | 40 | Each avatar ≈ 14 meshes. Fine to 40 on desktop. |
-| Draw calls | < 600 | ~250 empty gym + 14/avatar |
-| Triangles | < 300k | ~60k |
-| Sim cost | < 1 ms/frame | 40 agents ≈ 0.1 ms per step |
-| JS bundle | < 400 KB gzip | ~330 KB gzip |
+| Members on screen | 40 | One skinned mesh per member (+ props while lifting) |
+| Draw calls | < 600 | 355 with 40 members + 12 crew (shadow pass included) |
+| Triangles | < 300k | ~231k in the scene (~3.5k per member) |
+| Sim cost | < 1 ms/frame | 40 agents ≈ 0.05 ms per 0.1 s step |
+| JS bundle | < 400 KB gzip | 366 KB initial; post-processing (98 KB) loads lazily, and not at all on Low detail without tilt-shift |
+
+**Adapting at runtime.** drei's `PerformanceMonitor` lowers the pixel ratio in 0.25 steps when frames drop and raises it again with headroom. Phones and tablets start on Low detail. A hidden tab stops rendering, which pauses the sim; when it becomes visible again any whole gym days missed are resolved by the normal catch-up.
 
 Each member is one `SkinnedMesh` with vertex colours (rigidly skinned primitives merged into one geometry), each station type one merged geometry, and the static room a single mesh, so 40 members + 12 crew measure 355 draw calls and ~231k scene triangles.
 
@@ -410,14 +414,14 @@ Each member is one `SkinnedMesh` with vertex colours (rigidly skinned primitives
 
 ## 15. UI and accessibility
 
-The UI is all DOM over the canvas and never blocks the scene: panels sit on the right, the feed on the bottom-left, and the tooltip follows the cursor.
+The UI is all DOM over the canvas and never blocks the scene: panels sit on the right (a bottom sheet on phones), the feed on the bottom-left, and the tooltip follows the cursor.
 
 | Element | Notes |
 |---|---|
-| Top bar | Date, clock, members inside, speed, ✨ Aura + colour picker (8 colours), 🏆, 🔊, ⚙️ |
+| Top bar | Date, clock, members inside, speed, Aura + colour picker (8 colours), You, Hall of Fame, Music, Settings (SVG icons; labels hide on phones) |
 | Info terminal (hover) | Name (+ YOU tag), featured title, goal, current exercise, progress n/m, live activity ("Set 2/4", "Flex-Off!", "Looking for water bottle") |
 | Gym News feed | Last 5 events; titles in gold, ceremonies highlighted |
-| Panels | Hall of Fame, Settings, Music. One at a time, ✕ to close; music keeps playing |
+| Panels | You, Character, Profile, Hall of Fame, Year in review, Music, Settings. One at a time, ✕ or Esc to close; music keeps playing |
 
 | Requirement | Implementation |
 |---|---|
@@ -425,8 +429,10 @@ The UI is all DOM over the canvas and never blocks the scene: panels sit on the 
 | High Contrast | White floor, black borders on all UI, thicker bubble outlines |
 | Colourblind-friendly indicators | Zones carry text labels; temporary stations have a shape outline and a label tag; titles use ⭐ and text, never colour alone |
 | Scalable UI | 0.85–1.4× slider (`--ui-scale`) |
-| Keyboard | All controls are real buttons, selects and inputs with visible focus rings |
-| Screen readers | The feed is an `aria-live="polite"` region; panels are labelled regions; banner `role="status"` |
+| Keyboard | All controls are real buttons, selects and inputs with visible focus rings. The 3D scene is reachable too: Tab moves through everyone in the gym (a blue ring appears at their feet, the camera glides to them, their info card shows), Enter opens their profile. Shortcuts: Space pause, 1/2/4 speed, A aura, F follow, Y/H/M/S panels, Esc close |
+| Screen readers | "Right now in the gym": a hidden summary ("12 members inside. Juno Hart is doing Bench Press, set 2 of 4…") and a list of everyone with what they're doing, updated every 1.5 s. The feed is an `aria-live="polite"` region; panels are labelled regions; banner `role="status"` |
+| Touch | Tap a member to open their profile (there's no hover on touch); pinch and drag the camera; tall screens get a rotated view so the gym fills the screen |
+| Measured | Lighthouse (mobile): Accessibility 100, Best Practices 100, SEO 100 |
 
 ---
 

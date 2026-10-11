@@ -12,7 +12,7 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M5 | Gym Legends: full presentation | ✅ Done |
 | M6 | The player | ✅ Done |
 | M7 | Music and sound | ✅ Done |
-| M8 | Accessibility, performance, launch | 🟨 Next (basics done) |
+| M8 | Accessibility, performance, launch | ✅ Done (v1.0.0) |
 
 ---
 
@@ -124,7 +124,10 @@ Spotify playback via the wall speakers is already implemented (PKCE + Web Playba
 
 **Acceptance:** sign in, pick a playlist, close the window: music continues and the speakers animate. SFX can be muted independently.
 
-## M8 — Accessibility, performance, launch
+## M8 — Accessibility, performance, launch ✅
+
+Shipped: keyboard navigation of the 3D scene (Tab through members, Enter for their profile, single-key shortcuts), a screen-reader "Right now in the gym" summary, a phone layout (icon-only top bar, bottom-sheet panels, rotated portrait camera, tap to inspect, Low detail by default), adaptive pixel ratio, lazily loaded post-processing, catch-up after a hidden tab, save migration and repair, a recovery screen for damaged saves, a social card, a credits page and the version in Settings. **Measured:** Lighthouse (mobile emulation) Accessibility 100, Best Practices 100, SEO 100; initial JS 366 KB gzip; the 30-minute run at 4× is reported in the launch notes below. A real phone still needs a hands-on try.
+
 
 - Full keyboard navigation of the 3D scene (Tab cycles through members, Enter opens the profile)
 - Screen-reader summary of the gym ("12 members inside; Juno Hart is doing Bench Press, set 2 of 4")

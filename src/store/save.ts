@@ -30,8 +30,3 @@ export function waitForHydration(): Promise<void> {
     const unsub = useSaveStore.persist.onFinishHydration(() => { unsub(); resolve(); });
   });
 }
-
-export function isValidSave(x: unknown): x is SaveData {
-  const s = x as SaveData;
-  return !!s && s.version === 1 && typeof s.createdAt === 'string' && typeof s.day === 'number' && !!s.members && Array.isArray(s.titles);
-}

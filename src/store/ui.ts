@@ -9,6 +9,8 @@ interface UiState {
   reviewYear: number | null;  // year shown in the year-in-review card
   banner: { text: string; id: number } | null;
   follow: boolean;            // camera follows the player
+  keyboardFocus: string | null; // member focused from the keyboard (camera glides to them)
+  setKeyboardFocus: (id: string | null) => void;
   setFollow: (on: boolean) => void;
   setHovered: (id: string | null) => void;
   openPanel: (p: Panel) => void;
@@ -24,6 +26,8 @@ export const useUi = create<UiState>()((set) => ({
   reviewYear: null,
   banner: null,
   follow: false,
+  keyboardFocus: null,
+  setKeyboardFocus: (keyboardFocus) => set({ keyboardFocus }),
   setFollow: (follow) => set({ follow }),
   setHovered: (hovered) => set({ hovered }),
   openPanel: (panel) => set((s) => ({ panel: s.panel === panel ? null : panel })),

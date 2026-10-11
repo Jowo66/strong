@@ -2,10 +2,12 @@ import { useRef, useState } from 'react';
 import { useEngine } from '../engineContext';
 import { useSettings, type GymSize } from '../store/settings';
 import { useUi } from '../store/ui';
-import { isValidSave } from '../store/save';
+import { migrateSave } from '../store/migrate';
+import type { SaveData } from '../sim/types';
+import { About } from './About';
 import { Icon } from './Icon';
 
-export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) => void; onSave: () => void }) {
+export function SettingsPanel({ onImport, onSave }: { onImport: (save: SaveData) => void; onSave: () => void }) {
   const eng = useEngine();
   const s = useSettings();
   const close = useUi((u) => u.openPanel);
@@ -26,9 +28,9 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) 
 
   const importSave = async (f: File) => {
     try {
-      const json = JSON.parse(await f.text());
-      if (!isValidSave(json)) throw new Error('bad');
-      onImport(json);
+      const m = migrateSave(JSON.parse(await f.text()));
+      if (!m) throw new Error('bad');
+      onImport(m.save);
       showBanner('Gym imported.');
     } catch {
       showBanner("That file isn't a Mini Gym save.");
@@ -110,6 +112,7 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) 
         <button onClick={() => file.current?.click()}>Import gym</button>
         <input ref={file} type="file" accept="application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importSave(f); e.target.value = ''; }} />
       </div>
+      <About />
     </section>
   );
 }

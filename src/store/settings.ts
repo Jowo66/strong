@@ -27,6 +27,8 @@ export interface Settings {
 }
 
 const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+// phones and tablets start on Low detail (no ambient occlusion, smaller shadows)
+const smallDevice = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 760);
 
 export const useSettings = create<Settings>()(
   persist(
@@ -40,7 +42,7 @@ export const useSettings = create<Settings>()(
       nativeNameOrder: false,
       mixNationalities: false,
       tiltShift: true,
-      detail: 'high',
+      detail: smallDevice ? 'low' : 'high',
       masterVolume: 0.8,
       muted: false,
       sfxOn: true,

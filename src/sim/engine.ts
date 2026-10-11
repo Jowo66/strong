@@ -1503,6 +1503,14 @@ export class SimEngine {
     this.version++;
   }
 
+  /** A save without a player (repaired, or very old) gets a fresh one. */
+  ensurePlayer(): void {
+    if (this.player) return;
+    const taken = new Set(Object.values(this.save.members).map(nameKey));
+    this.save.members.player = createNpc(this.c, this.rng, { id: 'player', day: this.save.day, taken, mixChance: this.settings.mixChance, isPlayer: true });
+    this.save.playerCreated = false;
+  }
+
   setPlayerMode(mode: 'auto' | 'manual'): void {
     this.save.playerMode = mode;
     const a = this.playerAgent();

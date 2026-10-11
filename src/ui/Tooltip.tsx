@@ -8,6 +8,7 @@ import { fullName } from '../sim/names';
 export function Tooltip() {
   const eng = useEngine();
   const hovered = useUi((s) => s.hovered);
+  const keyboard = useUi((s) => s.keyboardFocus);
   const native = useSettings((s) => s.nativeNameOrder);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   usePoll(250);
@@ -21,7 +22,7 @@ export function Tooltip() {
   const npc = eng.save.members[hovered];
   if (!info || !npc) return null;
   return (
-    <div className="tooltip" style={{ left: pos.x + 16, top: pos.y + 16 }} role="tooltip">
+    <div className={`tooltip${keyboard ? ' kb' : ''}`} style={keyboard ? undefined : { left: pos.x + 16, top: pos.y + 16 }} role="tooltip">
       <div className="tt-name">{fullName(npc, native)}{info.isPlayer && <span className="you">YOU</span>}</div>
       {info.title && <div className="tt-title">⭐ {info.title}</div>}
       <div className="tt-row"><span>Goal</span>{info.goal}</div>
