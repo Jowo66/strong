@@ -13,6 +13,7 @@ import { hashString } from './character/look';
 import { BONES, boneInverses, buildCharacterGeometry, createBones, dumbbellGeometry, rigDims } from './character/rig';
 import { blendPose, computePose, propForPose, restPose, type Pose, type PoseContext, type Prop } from './character/poses';
 import { platesFor, PLATE_COLOURS, PLATE_RADIUS } from './plates';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export interface AvatarSource {
   pos: Vec2; facing: number; anim: Anim; bubble: Bubble | null;
@@ -39,6 +40,14 @@ const barGeo = new THREE.CylinderGeometry(0.022, 0.022, 1, 8).rotateZ(Math.PI / 
 const plateGeo = new THREE.CylinderGeometry(1, 1, 0.07, 18).rotateZ(Math.PI / 2);
 const dbGeo = dumbbellGeometry();
 const phoneGeo = new THREE.BoxGeometry(0.05, 0.1, 0.012);
+const bottleGeo = (() => {
+  const body = new THREE.CylinderGeometry(0.035, 0.035, 0.16, 10).toNonIndexed();
+  const cap = new THREE.CylinderGeometry(0.02, 0.025, 0.04, 8).translate(0, 0.1, 0).toNonIndexed();
+  const paint = (g: THREE.BufferGeometry, hex: string) => { const c = new THREE.Color(hex); const a = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < a.length; i += 3) { a[i] = c.r; a[i + 1] = c.g; a[i + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); g.deleteAttribute('uv'); return g; };
+  return mergeGeometries([paint(body, '#8ECAE6'), paint(cap, '#264653')])!;
+})();
+const puffGeo = new THREE.IcosahedronGeometry(0.05, 0);
+const puffMaterial = new THREE.MeshBasicMaterial({ color: '#FFFFFF', transparent: true, opacity: 0.8, depthWrite: false });
 const auraGeo = new THREE.OctahedronGeometry(0.06, 0);
 const hitGeo = new THREE.CapsuleGeometry(0.35, 1.0, 2, 8).translate(0, 0.9, 0);
 const noRaycast = () => undefined;
@@ -84,6 +93,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const dbL = useRef<THREE.Mesh>(null!);
   const dbR = useRef<THREE.Mesh>(null!);
   const phone = useRef<THREE.Mesh>(null!);
+  const bottle = useRef<THREE.Mesh>(null!);
+  const puff = useRef<THREE.InstancedMesh>(null!);
   const aura = useRef<THREE.Group>(null!);
   const auraParticles = useRef<THREE.InstancedMesh>(null!);
   const auraLight = useRef<THREE.PointLight>(null!);
@@ -163,6 +174,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     dbL.current.visible = prop === 'dumbbells' || prop === 'dumbbell';
     dbR.current.visible = prop === 'dumbbells';
     phone.current.visible = prop === 'phone';
+    bottle.current.visible = prop === 'bottle';
+    puff.current.visible = prop === 'chalk';
     if (prop !== 'none') {
       g.updateMatrixWorld(true);
       m4.copy(g.matrixWorld).invert();
@@ -192,6 +205,23 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
           const s = 0.85 + Math.min(0.6, (a.weight ?? 20) / 120);
           dbL.current.scale.setScalar(s); dbR.current.scale.setScalar(s);
         }
+      }
+      if (bottle.current.visible) {
+        bottle.current.position.copy(hr);
+        B.foreR.getWorldQuaternion(q1); bottle.current.quaternion.copy(q2).multiply(q1);
+      }
+      if (puff.current.visible) {
+        // a little cloud of chalk dust between the hands (V5); a still haze in reduced motion
+        const mid = v3.copy(hl).add(hr).multiplyScalar(0.5);
+        const ph = reducedMotion ? 0.5 : (c.t * 0.8) % 1;
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2;
+          const r = 0.06 + ph * 0.22;
+          m4.compose(v1.set(mid.x + Math.cos(ang) * r, mid.y + ph * 0.25 + (i % 2) * 0.05, mid.z + Math.sin(ang) * r), q1.identity(), v2.setScalar(0.6 + ph));
+          puff.current.setMatrixAt(i, m4);
+        }
+        puff.current.instanceMatrix.needsUpdate = true;
+        puffMaterial.opacity = 0.75 * (1 - ph);
       }
       if (phone.current.visible) {
         phone.current.position.copy(hr).add(v3.set(0, 0.06, 0.06));
@@ -249,6 +279,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
         <mesh ref={dbL} geometry={dbGeo} material={propMaterial} visible={false} castShadow />
         <mesh ref={dbR} geometry={dbGeo} material={propMaterial} visible={false} castShadow />
         <mesh ref={phone} geometry={phoneGeo} material={phoneMaterial} visible={false} />
+        <mesh ref={bottle} geometry={bottleGeo} material={propMaterial} visible={false} castShadow />
+        <instancedMesh ref={puff} args={[puffGeo, puffMaterial, 6]} visible={false} />
       </group>
       <group ref={aura} visible={false}>
         <instancedMesh ref={auraParticles} args={[auraGeo, undefined, AURA_N]}>

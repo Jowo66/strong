@@ -42,6 +42,9 @@ export interface Layout {
   speakers: { id: string; x: number; y: number; z: number }[];
   hallOfFame: { x: number; y: number; z: number };
   podium: Vec2; waterCooler: Vec2; wanderPoints: Vec2[];
+  obstacles: { rects: { name: string; x0: number; x1: number; z0: number; z1: number }[]; circles: { name: string; x: number; z: number; r: number }[] };
+  partitions: { x0: number; x1: number; z0: number; z1: number }[];
+  coolerSpot: Vec2; chalkSpots: Vec2[];
 }
 
 const namePools = Object.values(

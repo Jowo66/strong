@@ -124,12 +124,15 @@ export interface SaveData {
 
 export type AgentState =
   | 'walking' | 'checkIn' | 'changing' | 'choosing' | 'waiting'
-  | 'lifting' | 'resting' | 'searching' | 'interacting'
+  | 'lifting' | 'resting' | 'searching' | 'interacting' | 'break'
   | 'changingOut' | 'gone';
+
+export type BreakKind = 'water' | 'mirror' | 'chalk' | 'phone';
 
 export type Anim =
   | 'idle' | 'walk' | 'lift' | 'cardio' | 'stretch' | 'flex' | 'clap' | 'talk' | 'search' | 'powerUp' | 'celebrate' | 'build'
-  | 'spot' | 'hype' | 'fistBump' | 'dramatic' | 'pretend' | 'podium';
+  | 'spot' | 'hype' | 'fistBump' | 'dramatic' | 'pretend' | 'podium'
+  | 'drink' | 'mirrorCheck' | 'chalk' | 'phone' | 'change';
 
 export interface RoutineItem {
   exerciseId: string;
@@ -162,6 +165,10 @@ export interface Agent {
   paused: { state: AgentState; timer: number } | null;
   aura: number;           // seconds of aura remaining
   react: number;          // seconds left on a reaction animation (clap, celebrate)
+  dest?: { to: Vec2; viaId: string | null } | null; // where the current path leads (for replanning)
+  queueFor?: string | null;      // station this member is queueing at
+  lastStationId?: string | null; // station just left (members step off it on their way out)
+  breakKind?: BreakKind | null;
 }
 
 export interface Station {

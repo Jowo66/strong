@@ -2,9 +2,11 @@
 // Runs on a fixed 0.1 s step. The renderer reads agent/station/crew state every frame.
 import type { Content } from './content';
 import type {
-  Agent, AgentState, CrewJob, CrewMember, FeedItem, Interaction, MomentType, Npc, SaveData, Station,
+  Agent, AgentState, BreakKind, CrewJob, CrewMember, FeedItem, Interaction, MomentType, Npc, SaveData, Station,
   StationType, Vec2, ZoneId, Anim,
 } from './types';
+import { NavGrid, approachPoint, stationLocal } from './nav';
+import { footprint, inside } from './footprint';
 import { Rng } from './rng';
 import { createNpc, isRegular } from './npc';
 import { generateRoutine } from './routine';
@@ -58,12 +60,14 @@ export class SimEngine {
   private closing = false;
   private feedListeners = new Set<(f: FeedItem) => void>();
   readonly chronicle: Chronicle;
+  readonly nav: NavGrid;
 
   constructor(c: Content, save: SaveData, settings: EngineSettings, seed?: number) {
     this.c = c;
     this.save = save;
     this.settings = settings;
     this.rng = new Rng(seed);
+    this.nav = new NavGrid(c);
     this.chronicle = {
       c, save,
       feed: (item) => this.pushFeed(item),
@@ -325,30 +329,73 @@ export class SimEngine {
 
   // ---------- Movement ----------
 
-  private inLockers(p: Vec2): boolean {
-    const z = this.c.layout.zones.lockers;
-    return p.x < z.x1 + 0.05 && p.z < z.z1 + 0.3;
+  /** The station whose footprint contains `p` (own station first), if any. */
+  private stationAt(p: Vec2, prefer?: string | null): Station | undefined {
+    const own = prefer ? this.station(prefer) : undefined;
+    if (own && inside(p, footprint(this.c, own.type, own.pos, own.rot), 0.2)) return own;
+    return this.stations.find((st) => inside(p, footprint(this.c, st.type, st.pos, st.rot), 0.05));
   }
 
-  private route(from: Vec2, to: Vec2): Vec2[] {
-    const door = this.c.layout.lockerDoor;
-    const fromIn = this.inLockers(from), toIn = this.inLockers(to);
-    if (fromIn === toIn) return [{ ...to }];
-    if (fromIn) {
-      const out: Vec2[] = [door.inside, door.outside];
-      if (to.x < door.outside.x) out.push({ x: door.outside.x, z: to.z });
-      return [...out, { ...to }];
+  /**
+   * Waypoints from `from` to `to` on the nav grid. Members standing on a station first step off to its
+   * approach point; with `via`, the path ends at that station's approach point and then steps onto `to`.
+   */
+  private plan(from: Vec2, to: Vec2, via?: Station | null, own?: string | null): Vec2[] {
+    const out: Vec2[] = [];
+    let start = from;
+    if (!this.nav.isFree(from)) {
+      const st = this.stationAt(from, own);
+      start = this.nav.nearestFree(st ? approachPoint(this.c, st) : from);
+      out.push(start);
     }
-    const pre: Vec2[] = from.x < door.outside.x ? [{ x: door.outside.x, z: from.z }] : [];
-    return [...pre, door.outside, door.inside, { ...to }];
+    const goal = via ? this.nav.nearestFree(approachPoint(this.c, via)) : this.nav.nearestFree(to);
+    const mid = this.nav.findPath(start, goal) ?? [goal];
+    out.push(...mid);
+    if (via) out.push({ ...to });
+    return out;
   }
 
-  private goTo(a: Agent, target: Vec2, after: AgentState, afterTimer: number | null = null): void {
-    a.path = this.route(a.pos, target);
+  private goTo(a: Agent, target: Vec2, after: AgentState, afterTimer: number | null = null, via: Station | null = null): void {
+    if (!this.nav.isFree(a.pos)) {
+      const leaving = this.stationAt(a.pos, a.stationId ?? a.lastStationId);
+      if (leaving && leaving.id !== a.stationId) a.lastStationId = leaving.id;
+    }
+    a.path = this.plan(a.pos, target, via, a.stationId ?? a.lastStationId);
+    a.dest = { to: { ...target }, viaId: via?.id ?? null };
     a.state = 'walking';
     a.after = after;
     a.afterTimer = afterTimer;
     a.anim = 'walk';
+  }
+
+  /** After stations change (a build starts or a temporary station goes), re-route anyone whose path is now blocked. */
+  private refreshNav(): void {
+    this.nav.setStations(this.stations);
+    for (const a of this.agents.values()) {
+      if ((a.state !== 'walking' && a.state !== 'searching') || !a.dest) continue;
+      let prev = a.pos, blocked = false;
+      const n = a.dest.viaId ? a.path.length - 1 : a.path.length;
+      for (let i = 0; i < n && !blocked; i++) { if (!this.nav.lineOfSight(prev, a.path[i]) && this.nav.isFree(prev)) blocked = true; prev = a.path[i]; }
+      if (blocked) a.path = this.plan(a.pos, a.dest.to, a.dest.viaId ? this.station(a.dest.viaId) : null, a.stationId ?? a.lastStationId);
+    }
+  }
+
+  /** Walk an agent along its path, gently steering away from other members on open floor. */
+  private moveAgent(a: Agent, h: number, speed: number): { done: boolean; facing?: number } {
+    const r = this.move(a.pos, a.path, h, speed);
+    if (r.done || !this.nav.isFree(a.pos)) return r;
+    let px = 0, pz = 0;
+    for (const o of this.agents.values()) {
+      if (o === a || o.state === 'gone') continue;
+      const dx = a.pos.x - o.pos.x, dz = a.pos.z - o.pos.z;
+      const d = Math.hypot(dx, dz);
+      if (d < 0.5 && d > 1e-4) { px += (dx / d) * (0.5 - d); pz += (dz / d) * (0.5 - d); }
+    }
+    if (px || pz) {
+      const nx = a.pos.x + px * h * 3, nz = a.pos.z + pz * h * 3;
+      if (this.nav.isFree({ x: nx, z: nz })) { a.pos.x = nx; a.pos.z = nz; }
+    }
+    return r;
   }
 
   /** Moves along a path. Returns true when the path is finished. */
@@ -371,7 +418,7 @@ export class SimEngine {
   private updateAgent(a: Agent, h: number): void {
     switch (a.state) {
       case 'walking': {
-        const r = this.move(a.pos, a.path, h, WALK_SPEED);
+        const r = this.moveAgent(a, h, WALK_SPEED);
         if (r.facing !== undefined) a.facing = r.facing;
         if (r.done) {
           const next = a.after ?? 'choosing';
@@ -382,7 +429,7 @@ export class SimEngine {
         break;
       }
       case 'searching': {
-        const r = this.move(a.pos, a.path, h, WALK_SPEED * 0.8);
+        const r = this.moveAgent(a, h, WALK_SPEED * 0.8);
         if (r.facing !== undefined) a.facing = r.facing;
         if (r.done) {
           this.say(a, this.rng.pick(this.c.dialogue.lostBottle.found), 2.6);
@@ -420,6 +467,10 @@ export class SimEngine {
         a.timer -= h;
         if (a.timer <= 0) { a.outfit = 'street'; this.goTo(a, this.c.layout.entrance, 'gone'); }
         break;
+      case 'break':
+        a.timer -= h;
+        if (a.timer <= 0) { a.breakKind = null; this.enter(a, 'choosing'); }
+        break;
       case 'interacting':
       case 'gone':
         break;
@@ -437,14 +488,28 @@ export class SimEngine {
         break;
       case 'changing':
       case 'changingOut':
+        // face the locker: the open door screens the member from the room while they change
         a.timer = 2.5;
+        a.facing = a.lockerSpot.x < -13.5 ? -Math.PI / 2 : Math.PI;
+        a.lastStationId = null;
         break;
-      case 'waiting':
+      case 'waiting': {
         a.waitTime = 0;
+        const q = this.station(a.queueFor ?? null);
+        if (q) a.facing = Math.atan2(q.pos.x - a.pos.x, q.pos.z - a.pos.z);
         break;
+      }
+      case 'break': {
+        a.timer = timer ?? 3;
+        const L = this.c.layout;
+        const look = a.breakKind === 'water' ? L.waterCooler : a.breakKind === 'mirror' ? { x: a.pos.x, z: L.mirror.z } : a.breakKind === 'chalk' ? { x: a.pos.x - 0.1, z: a.pos.z - 1 } : null;
+        if (look) a.facing = Math.atan2(look.x - a.pos.x, look.z - a.pos.z);
+        break;
+      }
       case 'lifting': {
         const st = this.station(a.stationId);
         if (!st || !item) { this.enter(a, 'choosing'); return; }
+        a.queueFor = null;
         st.occupant = a.npcId;
         if (st.reservedBy === a.npcId) st.reservedBy = null;
         a.pos = { ...st.pos };
@@ -473,6 +538,8 @@ export class SimEngine {
         return ex?.category === 'cardio' ? 'cardio' : ex?.category === 'mobility' || ex?.station === 'mat' ? 'stretch' : 'lift';
       }
       case 'interacting': return a.anim;
+      case 'changing': case 'changingOut': return 'change';
+      case 'break': return a.breakKind === 'water' ? 'drink' : a.breakKind === 'mirror' ? 'mirrorCheck' : a.breakKind === 'chalk' ? 'chalk' : 'phone';
       default: return 'idle';
     }
   }
@@ -486,6 +553,7 @@ export class SimEngine {
       case 'waiting': return 'Waiting for a station';
       case 'lifting': return `Set ${a.setsDone + 1}/${a.routine[a.index]?.sets ?? 1}`;
       case 'resting': return 'Resting';
+      case 'break': return a.breakKind === 'water' ? 'Grabbing some water' : a.breakKind === 'mirror' ? 'Checking the mirror' : a.breakKind === 'chalk' ? 'Chalking up' : 'Scrolling on their phone';
       case 'searching': return 'Looking for water bottle';
       case 'interacting': {
         const it = a.interactionId ? this.interactions.get(a.interactionId) : undefined;
@@ -510,23 +578,36 @@ export class SimEngine {
       st.reservedBy = a.npcId;
       a.stationId = st.id;
       a.setsDone = 0;
-      this.goTo(a, st.pos, 'lifting');
+      this.goTo(a, st.pos, 'lifting', null, st);
       return;
     }
-    const z = this.c.layout.zones[this.zoneForType(ex.station)];
-    const spot = { x: this.rng.range(z.x0 + 0.4, z.x1 - 0.4), z: z.z1 + 0.5 };
-    this.goTo(a, spot, 'waiting');
+    // queue next to the nearest station of the right type and claim the first one that frees up
+    const all = this.stations.filter((s) => s.type === ex.station && !s.building);
+    const target = all.length ? all.reduce((b, s) => (dist(s.pos, a.pos) < dist(b.pos, a.pos) ? s : b)) : undefined;
+    a.queueFor = target?.id ?? null;
+    this.goTo(a, target ? this.queueSpot(target, a) : this.nav.nearestFree(this.c.layout.wanderPoints[0]), 'waiting');
+  }
+
+  /** A free spot in front of a busy station, fanning out sideways as more members queue there. */
+  private queueSpot(st: Station, a: Agent): Vec2 {
+    const n = [...this.agents.values()].filter((o) => o !== a && o.queueFor === st.id).length;
+    const ap = approachPoint(this.c, st);
+    const f = this.c.layout.footprints[st.type];
+    const lz = f.z1 + 0.38 + 0.45 + Math.floor(n / 3) * 0.55;
+    const want = stationLocal(st, [0, 0.6, -0.6][n % 3], lz);
+    return this.nav.isFree(want) ? want : this.nav.nearestFree(this.nav.isFree(ap) ? want : ap);
   }
 
   private waitForStation(a: Agent): void {
     const ex = this.c.exerciseById[a.routine[a.index].exerciseId];
     const mine = this.stations.find((s) => s.reservedBy === a.npcId && !s.building);
-    const st = mine ?? this.stations.find((s) => s.type === ex.station && this.isFree(s));
+    const queued = this.station(a.queueFor ?? null);
+    const st = mine ?? (queued && this.isFree(queued) ? queued : this.stations.find((s) => s.type === ex.station && this.isFree(s)));
     if (st) {
       st.reservedBy = a.npcId;
       a.stationId = st.id;
       a.setsDone = 0;
-      this.goTo(a, st.pos, 'lifting');
+      this.goTo(a, st.pos, 'lifting', null, st);
       return;
     }
     const ev = this.c.events.construction;
@@ -536,6 +617,7 @@ export class SimEngine {
       for (const s of this.stations) if (s.reservedBy === a.npcId) s.reservedBy = null;
       this.say(a, 'Skipping it.');
       a.index += 1;
+      a.queueFor = null;
       this.enter(a, 'choosing');
     }
   }
@@ -597,9 +679,35 @@ export class SimEngine {
       st.occupant = null;
       if (st.reservedBy === a.npcId) st.reservedBy = null;
     }
+    a.lastStationId = a.stationId;
     a.stationId = null;
     a.index += 1;
-    this.enter(a, 'choosing');
+    if (!this.startBreak(a, st)) this.enter(a, 'choosing');
+  }
+
+  /** Between exercises: maybe a sip at the cooler, a mirror check, chalk before a heavy lift, or a phone scroll. */
+  private startBreak(a: Agent, left: Station | undefined): boolean {
+    const b = this.c.events.breaks;
+    if (this.closing || a.index >= a.routine.length || !this.rng.chance(b.chance)) return false;
+    const L = this.c.layout;
+    const next = this.c.exerciseById[a.routine[a.index].exerciseId];
+    let kind = this.rng.weightedKey(b.kinds) as BreakKind;
+    if (kind === 'chalk' && !['platform', 'squatRack', 'pullupBar'].includes(next.station)) kind = 'water';
+    let target: Vec2;
+    switch (kind) {
+      case 'water': target = this.nav.nearestFree({ x: L.coolerSpot.x + this.rng.range(-0.5, 0.5), z: L.coolerSpot.z }); break;
+      case 'mirror': {
+        const freeSpots = L.mirrorSpots.filter((p) => ![...this.agents.values()].some((o) => o !== a && dist(o.pos, p) < 0.5));
+        if (!freeSpots.length) return false;
+        target = this.rng.pick(freeSpots);
+        break;
+      }
+      case 'chalk': target = L.chalkSpots.reduce((best, p) => (dist(p, a.pos) < dist(best, a.pos) ? p : best)); break;
+      default: target = this.nav.nearestFree(left ? approachPoint(this.c, left) : a.pos);
+    }
+    a.breakKind = kind;
+    this.goTo(a, target, 'break', b.seconds[kind]);
+    return true;
   }
 
   private finishVisit(a: Agent): void {
@@ -623,12 +731,14 @@ export class SimEngine {
   private startSearch(a: Agent): void {
     a.paused = { state: 'resting', timer: a.timer };
     this.say(a, this.rng.pick(this.c.dialogue.lostBottle.start), 2.4);
-    const pts = this.rng.shuffle(this.c.layout.wanderPoints).slice(0, 2);
+    const pts = this.rng.shuffle(this.c.layout.wanderPoints).slice(0, 2).map((p) => this.nav.nearestFree(p));
     const st = this.station(a.stationId);
     const path: Vec2[] = [];
     let from = a.pos;
-    for (const p of [...pts, st ? st.pos : a.pos]) { path.push(...this.route(from, p)); from = p; }
+    for (const p of pts) { path.push(...this.plan(from, p, null, a.stationId)); from = path[path.length - 1]; }
+    path.push(...(st ? this.plan(from, st.pos, st) : this.plan(from, a.pos)));
     a.path = path;
+    a.dest = st ? { to: { ...st.pos }, viaId: st.id } : null;
     a.state = 'searching';
     a.anim = 'search';
   }
@@ -652,7 +762,9 @@ export class SimEngine {
 
   private witnesses(a: Agent): string[] { return this.agentsNear(a.pos, 6, a.npcId).map((o) => o.npcId); }
 
-  private available(a: Agent): boolean { return a.state === 'resting' && !a.interactionId && a.timer > 2.5; }
+  private available(a: Agent): boolean {
+    return (a.state === 'resting' || (a.state === 'break' && (a.breakKind === 'water' || a.breakKind === 'phone'))) && !a.interactionId && a.timer > 2.5;
+  }
 
   private rollSocialEvents(): void {
     const ev = this.c.events;
@@ -698,7 +810,7 @@ export class SimEngine {
     a.paused = null;
     a.interactionId = null;
     const st = this.station(a.stationId);
-    if (st && dist(a.pos, st.pos) > 0.3) this.goTo(a, st.pos, p.state, p.timer);
+    if (st && dist(a.pos, st.pos) > 0.3) this.goTo(a, st.pos, p.state, p.timer, st);
     else { this.faceStation(a); this.enter(a, p.state, p.timer); }
   }
 
@@ -750,7 +862,10 @@ export class SimEngine {
     it.data.setsDone = lifter.setsDone;
     this.pause(spotter, it);
     this.say(lifter, this.rng.pick(this.c.dialogue.spot.ask));
-    this.goTo(spotter, { x: st.pos.x, z: st.pos.z - 0.9 }, 'interacting');
+    // bench: behind the lifter's head; squat rack: right behind the lifter, inside the rack
+    const spotAt = st.type === 'bench' ? stationLocal(st, 0, -1.0) : stationLocal(st, 0, 0.45);
+    it.data.stationId = st.id;
+    this.goTo(spotter, spotAt, 'interacting', null, this.nav.isFree(spotAt) ? null : st);
     spotter.interactionId = it.id;
     it.stage = 'spotting';
   }
@@ -823,7 +938,11 @@ export class SimEngine {
       case 'spot': {
         const spotter = b;
         if (it.stage === 'spotting') {
-          if (spotter.state === 'interacting' && spotter.anim !== 'idle') spotter.anim = 'idle';
+          if (spotter.state === 'interacting' && spotter.anim !== 'spot') {
+            spotter.anim = 'spot';
+            const lst = this.station(a.stationId);
+            if (lst) spotter.facing = Math.atan2(lst.pos.x - spotter.pos.x, lst.pos.z - spotter.pos.z);
+          }
           const finished = a.state !== 'lifting' || a.setsDone !== it.data.setsDone;
           if (!finished) return;
           const over = this.rng.weightedKey(this.c.events.spot.outcomes) === 'overenthusiastic';
@@ -862,6 +981,11 @@ export class SimEngine {
   // ---------- Stations & construction crew ----------
 
   private buildStations(): void {
+    this.buildStationList();
+    this.nav.setStations(this.stations);
+  }
+
+  private buildStationList(): void {
     const counts: Partial<Record<StationType, number>> = {};
     this.stations = this.c.layout.stations.map((s, i) => {
       counts[s.type] = (counts[s.type] ?? 0) + 1;
@@ -891,6 +1015,9 @@ export class SimEngine {
     if (ofType.filter((s) => s.temporary).length >= ev.maxTemporaryPerType) return;
     const slot = (this.c.layout.tempSlots[type] ?? []).find((p) => !this.stations.some((s) => dist(s.pos, p) < 0.3));
     if (!slot) return;
+    // don't build on top of someone
+    const fp = footprint(this.c, type, slot, 0);
+    if ([...this.agents.values()].some((a) => inside(a.pos, fp, 0.3))) return;
     this.save.seq += 1;
     const st: Station = {
       id: `tmp${this.save.seq}`, type, zone: this.zoneForType(type), pos: { ...slot }, rot: 0,
@@ -898,16 +1025,18 @@ export class SimEngine {
       occupant: null, reservedBy: npcId, building: true, idle: 0, unracked: 0,
     };
     this.stations.push(st);
+    this.refreshNav();
     this.startJob('build', st, npcId);
   }
 
   private startJob(kind: CrewJob['kind'], st: Station, requestedBy: string | null): void {
     this.save.seq += 1;
     const entrance = this.c.layout.entrance;
+    const f = this.c.layout.footprints[st.type];
     const crew: CrewMember[] = [0, 1, 2].map((i) => {
-      const target = { x: st.pos.x + (i - 1) * 0.7, z: st.pos.z + 0.9 };
-      const start = { x: entrance.x + i * 0.4, z: entrance.z + i * 0.3 };
-      return { id: `c${this.save.seq}-${i}`, slot: i, pos: start, facing: Math.PI, path: [{ x: entrance.x, z: 4.5 }, { x: target.x, z: 4.5 }, target], anim: 'walk', bubble: null };
+      const target = this.nav.nearestFree(stationLocal(st, (i - 1) * 0.65, f.z1 + 0.45));
+      const start = { x: entrance.x + (i - 1) * 0.4, z: entrance.z };
+      return { id: `c${this.save.seq}-${i}`, slot: i, pos: start, facing: Math.PI, path: this.plan(start, target), anim: 'walk', bubble: null };
     });
     crew[0].bubble = { text: this.rng.pick(this.c.dialogue.crew[kind === 'build' ? 'arrive' : 'remove']), ttl: 2.5 };
     this.jobs.push({ id: `job${this.save.seq}`, kind, stationId: st.id, stage: 'arriving', timer: 0, crew, requestedBy, gag: null });
@@ -958,7 +1087,7 @@ export class SimEngine {
               recordMoment(this.chronicle, job.requestedBy!, 'construction', { zone: st.zone, detail: st.label, witnesses: this.witnesses(req) });
             } else if (st.reservedBy === job.requestedBy) st.reservedBy = null;
           } else {
-            if (st) this.stations = this.stations.filter((s) => s !== st);
+            if (st) { this.stations = this.stations.filter((s) => s !== st); this.refreshNav(); }
             this.version++;
             this.beginLeaving(job);
           }
@@ -987,7 +1116,7 @@ export class SimEngine {
   private beginLeaving(job: CrewJob): void {
     job.stage = 'leaving';
     const e = this.c.layout.entrance;
-    for (const m of job.crew) { m.anim = 'walk'; m.path = [{ x: m.pos.x, z: 4.5 }, { x: e.x, z: 4.5 }, { ...e }]; }
+    for (const m of job.crew) { m.anim = 'walk'; m.path = this.plan(m.pos, e); }
   }
 
   private updateStations(h: number): void {

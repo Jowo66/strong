@@ -7,9 +7,9 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M0 | Scaffold and deploy | ✅ Done |
 | M1 | Living gym core | ✅ Done (placeholder art) |
 | M2 | Diorama look | ✅ Done (code-built art; glTF swap optional) |
-| M3 | Movement and behaviour polish | ⬜ Next |
-| M4 | Social and humour depth | ⬜ |
-| M5 | Gym Legends: full presentation | 🟨 Systems done, presentation pending |
+| M3 | Movement and behaviour polish | ✅ Done |
+| M4 | Social and humour depth | ⬜ (after M5) |
+| M5 | Gym Legends: full presentation | 🟨 Next |
 | M6 | The player | 🟨 Aura done |
 | M7 | Music and sound | 🟨 Spotify done |
 | M8 | Accessibility, performance, launch | 🟨 Basics done |
@@ -57,7 +57,10 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 
 **Acceptance:** 40 members at 60 fps on a mid-range laptop (Chrome, 1080p); under 600 draw calls; screenshot reads as a miniature at a glance.
 
-## M3 — Movement and behaviour polish
+## M3 — Movement and behaviour polish ✅
+
+Shipped: nav grid + A* + string-pulling + separation steering (`sim/nav.ts`); approach points so members walk to the front of a station, then sit, lie down or grab the bar; queueing in front of busy stations; between-exercise breaks (water cooler, mirror check, chalk, phone); members face their locker while the door screens them. Benches and cable stations now face outward and build slots sit on open floor. Both acceptance checks are automated tests (three seeds, 40 members).
+
 
 - Nav grid + A* + separation steering (replace `route()`); members no longer walk through equipment
 - Station approach: walk to the side of the bench, sit or lie down, grab the bar

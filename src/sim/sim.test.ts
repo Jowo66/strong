@@ -9,7 +9,8 @@ import { evaluateTitles, awardAnnual, featuredTitle, titleLabel } from './legend
 import { recordMoment, type Chronicle } from './chronicle';
 import { SimEngine, STEP } from './engine';
 import type { SaveData } from './types';
-import { footprint, overlaps } from './footprint';
+import { footprint, inside, overlaps } from './footprint';
+import { NavGrid, approachPoint } from './nav';
 
 const settings = { dayLength: 600, cap: 25, members: 50, mixChance: 0 };
 
@@ -45,6 +46,28 @@ describe('layout', () => {
     }
     for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
       expect(overlaps(rects[i].r, rects[j].r), `${rects[i].name} overlaps ${rects[j].name}`).toBe(false);
+    }
+  });
+});
+
+describe('navigation', () => {
+  it('every station, build slot, locker, mirror spot, chalk spot and the cooler can be reached from the entrance', () => {
+    const nav = new NavGrid(c);
+    const eng = new SimEngine(c, saveWith(5), settings, 1);
+    nav.setStations(eng.stations);
+    const start = nav.nearestFree(c.layout.checkInSpot);
+    const L = c.layout;
+    const targets = [
+      ...eng.stations.map((s) => ({ name: s.label, p: approachPoint(c, s) })),
+      ...Object.entries(L.tempSlots).flatMap(([type, slots]) => slots.map((p) => ({ name: `temp ${type}`, p: approachPoint(c, { type: type as never, pos: p, rot: 0 }) }))),
+      ...L.lockerSpots.map((p, i) => ({ name: `locker ${i}`, p })),
+      ...L.mirrorSpots.map((p, i) => ({ name: `mirror ${i}`, p })),
+      ...L.chalkSpots.map((p, i) => ({ name: `chalk ${i}`, p })),
+      { name: 'cooler', p: L.coolerSpot }, { name: 'entrance', p: L.entrance },
+    ];
+    for (const t of targets) {
+      expect(nav.isFree(t.p), `${t.name} at ${t.p.x},${t.p.z} is blocked`).toBe(true);
+      expect(nav.findPath(start, t.p), `${t.name} is unreachable`).not.toBeNull();
     }
   });
 });
@@ -170,6 +193,34 @@ describe('engine', () => {
     expect(built).toBe(true);
     for (let i = 0; i < 200; i++) eng.step(STEP);
     expect(npc.stats.constructionTriggers).toBe(1);
+  });
+
+  it.each([5, 17, 99])('over a full busy day (seed %i) nobody walks through a station that is not theirs, and nobody waits more than 30 s without a build', (seed) => {
+    const eng = new SimEngine(c, saveWith(90), { dayLength: 600, cap: 40, members: 90, mixChance: 0 }, seed);
+    const fps = () => eng.stations.map((s) => ({ s, r: footprint(c, s.type, s.pos, s.rot) }));
+    let rects = fps(), stationCount = eng.stations.length;
+    let longestWaitWithoutBuild = 0, checks = 0;
+    const steps = Math.round(600 / STEP);
+    for (let i = 0; i < steps; i++) {
+      eng.step(STEP);
+      if (eng.stations.length !== stationCount) { rects = fps(); stationCount = eng.stations.length; }
+      for (const a of eng.agents.values()) {
+        // allowed: their own station, the one they just stepped off, the one they're walking onto, the one they're spotting at
+        const spotOf = [...eng.interactions.values()].find((it) => it.type === 'spot' && it.participants[1] === a.npcId)?.data.stationId;
+        for (const { s, r } of rects) {
+          if (s.id === a.stationId || s.id === a.lastStationId || s.id === a.dest?.viaId || s.id === spotOf || s.reservedBy === a.npcId) continue;
+          checks++;
+          if (inside(a.pos, r, -0.05)) expect.fail(`${a.npcId} (${a.state}) is inside ${s.label} at ${a.pos.x.toFixed(2)},${a.pos.z.toFixed(2)}`);
+        }
+        for (const o of [...c.layout.partitions, ...c.layout.obstacles.rects]) if (inside(a.pos, o, -0.05)) expect.fail(`${a.npcId} walked into ${'name' in o ? o.name : 'a partition'}`);
+        for (const o of c.layout.obstacles.circles) if (Math.hypot(a.pos.x - o.x, a.pos.z - o.z) < o.r - 0.05) expect.fail(`${a.npcId} walked into the ${o.name}`);
+        if (a.state === 'waiting' && !eng.stations.some((s) => s.temporary && s.reservedBy === a.npcId)) {
+          longestWaitWithoutBuild = Math.max(longestWaitWithoutBuild, a.waitTime);
+        }
+      }
+    }
+    expect(checks).toBeGreaterThan(10000);
+    expect(longestWaitWithoutBuild).toBeLessThanOrEqual(c.events.construction.waitBeforeSkip + STEP + 1e-6);
   });
 
   it('catches up missed days and hands out annual titles at new year', () => {

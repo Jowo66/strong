@@ -117,9 +117,20 @@ The gym is a 30 × 20 unit floor (x −15…15, z −10…10). The back wall (z 
 
 **Footprints.** `layout.json → footprints` gives each station type's local bounding box. `sim/footprint.ts` turns it into a world rectangle; a test checks that no two stations or temporary build slots overlap and that none sits off the floor or inside the locker room.
 
-**Movement (M1).** Agents walk in straight lines at 2.4 units/s along a waypoint path. `route()` adds the locker door waypoints (and a corridor waypoint at x = −8.1) whenever a path crosses into or out of the locker room. Agents may overlap; at this scale it reads as "squeezing past".
+**Movement (M3).** `sim/nav.ts` cuts the floor into 0.25-unit cells. Walls, partitions (`layout.partitions`), props (`layout.obstacles`) and every station footprint, grown by a member's radius (0.17), are blocked; the grid is rebuilt whenever a temporary station appears or goes. `engine.plan(from, to, via?)` builds a route:
+1. A member standing on a station first steps off to its **approach point** (just in front of the footprint, in station-local +Z).
+2. A* (8-way, no corner cutting, octile heuristic) to the goal, then string-pulling with line-of-sight checks so paths are straight lines between corners.
+3. With `via`, the path ends at the target station's approach point and then steps onto the station (to sit, lie down or grab the bar).
 
-**Movement (M3 plan).** Replace `route()` with A* on a 0.5-unit nav grid baked from the layout (stations as blocked cells), plus simple separation steering so agents slide around each other. The `route(from, to): Vec2[]` signature stays the same, so nothing else changes.
+Walking members are nudged apart by simple separation steering, but never onto a blocked cell. When stations change, anyone whose remaining path is now blocked is re-routed. Crew members use the same planner.
+
+**Queueing.** If every station of the type is taken, a member queues in front of the nearest one (up to three abreast, then a row behind), faces it, and claims it (or any other) the moment it frees up. After 3 s they ask the crew; after 30 s they skip the exercise.
+
+**Breaks.** After an exercise there's a 30% chance of a short break (`events.json → breaks`): water at the cooler (members there can strike up a conversation), a mirror check, chalk at a platform's chalk bowl before a heavy lift, or a phone scroll on the spot.
+
+**Locker privacy.** Members face their locker while changing; its door swings out on the camera side and screens them.
+
+**Acceptance (tested).** Over a full busy day (40 inside, three seeds) no member's centre enters a station footprint that isn't theirs (own, just left, walking onto, or spotting at) or a wall, partition or prop, and nobody waits more than 30 s unless the crew is building for them. Every station, build slot, locker, mirror spot, chalk spot and the cooler is reachable from the entrance.
 
 ---
 
@@ -199,7 +210,8 @@ Traits multiply event chances (`modifiers`) and rest length (`restMultiplier`):
 | `checkIn` | 1.2 s; 35% chance of a greeting bubble |
 | `changing` / `changingOut` | 2.5 s; outfit switches street ↔ gym |
 | `choosing` | Immediately: reserves the nearest free station of the right type and walks there, or walks to the zone edge to wait |
-| `waiting` | A matching station frees up (or one is built for them); after 3 s asks the crew; after 30 s skips the exercise |
+| `waiting` | Queued in front of a busy station. A matching station frees up (or one is built for them); after 3 s asks the crew; after 30 s skips the exercise |
+| `break` | Between exercises: water, mirror, chalk or phone for 2–4.5 s, then `choosing` |
 | `lifting` | `liftSeconds` (4–7 s; cardio 18–32 s, one set) |
 | `resting` | `restSeconds` from the goal (e.g. strength 11–18 s) × trait multiplier |
 | `searching` | Walked two wander points and back: "…it was here the whole time." |
@@ -441,6 +453,8 @@ The flow is **Authorization Code with PKCE**, so no client secret is needed and 
 | Longer workouts | `goals.json` `sets`, `rest`; `progression.json` `liftSeconds` |
 | Faster strength gains | `progression.json` `baseK`, `ceiling` |
 | More Flex-Offs, fewer spots | `events.json` |
+| More (or fewer) water-cooler breaks | `events.json` `breaks` |
+| Move equipment or props | `layout.json` `stations`, `tempSlots`, `obstacles`; `npm test` checks nothing overlaps and everything is reachable |
 | Funnier lines | `dialogue.json` (arrays; one is picked at random) |
 | New title | Add to `titles.json` (category + stat/metric + threshold/minValue + rarity) |
 | New country | Add `src/data/names/<cc>.json` with 50/50/50 names |

@@ -106,7 +106,8 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   k.rbox(0.42, 1.0, 0.42, 0.05, '#F7F7F7', W.x, 0.5, W.z);
   k.box(0.1, 0.05, 0.05, '#4361EE', W.x - 0.08, 0.8, W.z + 0.22); k.box(0.1, 0.05, 0.05, '#E63946', W.x + 0.08, 0.8, W.z + 0.22);
   // plants
-  for (const [x, z, s] of [[-14.4, 9.4, 1], [14.4, 9.4, 1.1], [14.4, -2.3, 0.9], [-9.6, 4.4, 0.8], [7.6, -9.4, 0.9]] as [number, number, number][]) {
+  for (const pl of L.obstacles.circles.filter((o) => o.name === 'plant')) {
+    const x = pl.x, z = pl.z, s = pl.r / 0.38;
     k.cyl(0.24 * s, 0.5 * s, '#B5651D', x, 0.25 * s, z, 0, 0, 0, 12, 0.19 * s);
     k.sphere(0.36 * s, '#52B788', x, 0.75 * s, z, 1, 1.1, 1);
     k.sphere(0.24 * s, '#40916C', x + 0.18 * s, 1.0 * s, z - 0.1 * s);
@@ -241,17 +242,18 @@ function Lockers({ lockers }: { lockers: LockerDef[] }) {
       const target = busy.has(`${l.spot.x},${l.spot.z}`) ? 1.9 : 0;
       open.current[i] += (target - open.current[i]) * Math.min(1, dt * 5);
       const h = hinges.current[i];
-      if (h) h.rotation.y = l.wall === 'left' ? open.current[i] : -open.current[i];
+      // doors swing out on the camera side, screening the member while they change
+      if (h) h.rotation.y = l.wall === 'left' ? -open.current[i] : open.current[i];
     });
   });
   return (
     <>
       {lockers.map((l, i) => (
         <group key={i} ref={(g) => { hinges.current[i] = g; }}
-          position={l.wall === 'left' ? [l.pos[0] + 0.295, 0.93, l.pos[2] - 0.28] : [l.pos[0] - 0.28, 0.93, l.pos[2] + 0.295]}>
+          position={l.wall === 'left' ? [l.pos[0] + 0.295, 0.93, l.pos[2] + 0.28] : [l.pos[0] + 0.28, 0.93, l.pos[2] + 0.295]}>
           <group rotation-y={l.wall === 'left' ? 0 : Math.PI / 2}>
-            <mesh geometry={doorGeo} material={doorMats[i % 3]} position={[0, 0, 0.28]} castShadow />
-            <mesh geometry={ventGeo} material={ventMat} position={[0.01, 0.55, 0.28]} />
+            <mesh geometry={doorGeo} material={doorMats[i % 3]} position={[0, 0, -0.28]} castShadow />
+            <mesh geometry={ventGeo} material={ventMat} position={[0.01, 0.55, -0.28]} />
           </group>
         </group>
       ))}

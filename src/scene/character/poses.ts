@@ -16,7 +16,7 @@ export interface Pose {
   brows: number;  // -1 frown/focused … 0 neutral … 1 raised/surprised
   blink: number;  // 1 open … 0.1 shut
 }
-export type Prop = 'none' | 'barbell' | 'ezbar' | 'dumbbells' | 'dumbbell' | 'phone';
+export type Prop = 'none' | 'barbell' | 'ezbar' | 'dumbbells' | 'dumbbell' | 'phone' | 'bottle' | 'chalk';
 
 export interface PoseContext {
   anim: Anim;
@@ -410,6 +410,42 @@ export function computePose(ctx: PoseContext): Pose {
       p.mouth = 0.8; p.brows = 0.6;
       return p;
     }
+    case 'drink': {
+      const sip = (t % 2.2) < 1.1 ? 1 : 0.35;
+      p.armR = [-0.9 * sip - 0.3, 0, 0.35]; p.foreR = [-2.1 * sip, 0, -0.2];
+      p.head = [-0.35 * sip, 0, 0];
+      p.armL = [0.1, 0, -0.5]; p.foreL = [-1.5, 0, 0];
+      p.mouth = 0.3 * sip;
+      return p;
+    }
+    case 'mirrorCheck': {
+      const k = Math.floor(t / 1.5) % 3;
+      p.spine = [0, [0.35, -0.35, 0][k] * m, 0];
+      p.head = [0, [-0.25, 0.25, 0][k], 0];
+      if (k === 2) { p.armL = [0, 0, -1.45]; p.armR = [0, 0, 1.45]; p.foreL = [0, 0, -1.6]; p.foreR = [0, 0, 1.6]; p.mouth = 0.4; } // a quick, private flex
+      else { p.armR = [-2.5, 0, 0.6]; p.foreR = [-1.9, 0, 0]; p.mouth = 0.15; } // fixing the hair
+      p.brows = 0.3;
+      return p;
+    }
+    case 'chalk': {
+      const r = Math.sin(t * 14) * m;
+      p.armL = [-0.85, 0, -0.1]; p.armR = [-0.85, 0, 0.1];
+      p.foreL = [-1.05, 0, 0.45 + r * 0.15]; p.foreR = [-1.05, 0, -0.45 + r * 0.15];
+      p.head = [0.3, 0, 0]; p.brows = -0.6;
+      return p;
+    }
+    case 'phone':
+      p.armR = [-0.4, 0, 0.1]; p.foreR = [-1.5, 0, -0.35];
+      p.armL = [-0.3, 0, -0.1]; p.foreL = [-1.3, 0, 0.3];
+      p.head = [0.5, 0, 0]; p.mouth = (t % 6) < 0.6 ? 0.5 : 0.05; // the occasional chuckle
+      return p;
+    case 'change': {
+      const w = Math.sin(t * 5) * m;
+      p.armL = [-2.5 + w * 0.2, 0, -0.35]; p.armR = [-2.5 - w * 0.2, 0, 0.35];
+      p.foreL = [-1.4, 0, 0]; p.foreR = [-1.4, 0, 0];
+      p.head = [0.35, 0, 0]; p.spine = [0.1, 0, w * 0.06];
+      return p;
+    }
     case 'idle': default:
       return idlePose(p, ctx);
   }
@@ -450,6 +486,9 @@ function idlePose(p: Pose, ctx: PoseContext): Pose {
 
 export function propForPose(ctx: PoseContext): Prop {
   if (ctx.anim === 'lift') return propFor(ctx.exercise);
+  if (ctx.anim === 'drink') return 'bottle';
+  if (ctx.anim === 'phone') return 'phone';
+  if (ctx.anim === 'chalk') return 'chalk';
   if (ctx.anim === 'idle' && !ctx.resting && Math.floor(ctx.t / 7 + ctx.variant * 4) % 4 === 2) return 'phone';
   return 'none';
 }

@@ -43,7 +43,7 @@ function squatRackBody(k: Kit): void {
   k.box(1.33, 0.09, 0.09, FRAME, 0, 2.13, -0.42);
   k.cyl(0.025, 1.3, CHROME, 0, 2.05, 0.42, 0, 0, Math.PI / 2, 8); // pull-up bar
   for (const x of [-0.62, 0.62]) {
-    k.box(0.1, 0.06, 0.14, PAD_ACCENT, x, 1.33, 0.38);        // J-hooks
+    k.box(0.1, 0.06, 0.14, PAD_ACCENT, x, 1.33, -0.38);       // J-hooks
     k.box(0.08, 0.06, 0.6, '#ADB5BD', x, 0.72, 0.15);          // safety arms
     // plate storage on the back posts
     k.cyl(0.025, 0.22, CHROME, x + Math.sign(x) * 0.12, 0.5, -0.42, 0, 0, Math.PI / 2, 8);
@@ -59,9 +59,9 @@ function platformBody(k: Kit): void {
   k.box(0.95, 0.075, 1.5, WOOD, 0, 0.04, 0);
   for (let i = -2; i <= 2; i++) k.box(0.005, 0.077, 1.5, WOOD_DARK, i * 0.19, 0.04, 0);
   // chalk bowl on a little stand
-  k.cyl(0.05, 0.5, STEEL, 0.85, 0.25, -0.65, 0, 0, 0, 8);
-  k.cyl(0.13, 0.08, '#F8F9FA', 0.85, 0.54, -0.65, 0, 0, 0, 14, 0.09);
-  k.cyl(0.11, 0.02, '#FFFFFF', 0.85, 0.58, -0.65, 0, 0, 0, 14);
+  k.cyl(0.05, 0.5, STEEL, 0.82, 0.25, 0.6, 0, 0, 0, 8);
+  k.cyl(0.13, 0.08, '#F8F9FA', 0.82, 0.54, 0.6, 0, 0, 0, 14, 0.09);
+  k.cyl(0.11, 0.02, '#FFFFFF', 0.82, 0.58, 0.6, 0, 0, 0, 14);
 }
 
 function dumbbellBody(k: Kit): void {
@@ -179,7 +179,7 @@ function bodyGeometry(type: StationType, variant: number): THREE.BufferGeometry 
 
 /** Where the bar rests when nobody is lifting it (station-local). */
 const RACK: Partial<Record<StationType, { y: number; z: number }>> = {
-  bench: { y: 0.99, z: -0.44 }, squatRack: { y: 1.38, z: 0.38 }, platform: { y: 0.24, z: 0 },
+  bench: { y: 0.99, z: -0.44 }, squatRack: { y: 1.38, z: -0.36 }, platform: { y: 0.24, z: 0 },
 };
 
 // ---------- construction kit ----------

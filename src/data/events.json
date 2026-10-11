@@ -56,5 +56,11 @@
     "removeAfterIdle": 45,
     "gagChance": 0.5
   },
-  "waitBeforeBuild": 3
+  "waitBeforeBuild": 3,
+  "breaks": {
+    "_notes": "Between exercises a member may wander off: water at the cooler, a mirror check, chalk before a heavy lift, or a phone scroll on the spot.",
+    "chance": 0.3,
+    "kinds": { "water": 0.4, "mirror": 0.25, "chalk": 0.15, "phone": 0.2 },
+    "seconds": { "water": 3.5, "mirror": 3.0, "chalk": 2.0, "phone": 4.5 }
+  }
 }

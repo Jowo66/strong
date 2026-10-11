@@ -18,7 +18,7 @@ const POSES: { anim: Anim; exercise?: string; resting?: boolean; stationType?: s
   { anim: 'lift', exercise: 'lateral_raise', weight: 15 }, { anim: 'lift', exercise: 'pull_up' }, { anim: 'lift', exercise: 'lat_pulldown' },
   { anim: 'cardio', exercise: 'treadmill_run' }, { anim: 'cardio', exercise: 'bike_intervals' }, { anim: 'cardio', exercise: 'rowing' },
   { anim: 'stretch', exercise: 'plank' }, { anim: 'stretch', exercise: 'push_up' }, { anim: 'stretch', exercise: 'stretch' },
-  { anim: 'spot' }, { anim: 'powerUp' },
+  { anim: 'spot' }, { anim: 'powerUp' }, { anim: 'drink' }, { anim: 'mirrorCheck' }, { anim: 'chalk' }, { anim: 'phone' }, { anim: 'change' },
 ];
 
 export function Lineup({ engine }: { engine: SimEngine }) {

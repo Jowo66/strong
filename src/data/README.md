@@ -14,7 +14,7 @@ Everything the simulation reads lives here. Edit JSON, save, and the dev server 
 | `titles.json` | Gym Legends titles |
 | `progression.json` | Strength curve, experience mix, attendance range |
 | `population.json` | Gym sizes and arrival peaks |
-| `layout.json` | Zones, stations, temporary build slots, lockers, mirror, speakers |
+| `layout.json` | Zones, stations, station footprints, temporary build slots, obstacles members walk around, lockers, mirror, chalk spots, speakers |
 | `appearance.json` | Skin, hair and outfit palettes |
 | `aura.json` | Aura colours and duration |
 
