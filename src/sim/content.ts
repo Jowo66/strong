@@ -36,6 +36,7 @@ export interface Layout {
   zones: Record<ZoneId, Zone>;
   stations: { type: StationType; zone: ZoneId; x: number; z: number; rot: number }[];
   tempSlots: Record<StationType, Vec2[]>;
+  footprints: Record<StationType, { x0: number; x1: number; z0: number; z1: number }>;
   lockerSpots: Vec2[]; mirrorSpots: Vec2[];
   mirror: { x0: number; x1: number; z: number; height: number };
   speakers: { id: string; x: number; y: number; z: number }[];

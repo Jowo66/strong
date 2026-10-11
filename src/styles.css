@@ -9,7 +9,7 @@
   --ui-scale: 1;
   --radius: 14px;
   --shadow: 0 6px 24px rgba(60, 40, 20, 0.14), 0 1px 3px rgba(60, 40, 20, 0.12);
-  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Segoe UI", system-ui, sans-serif;
+  font-family: "Nunito Variable", Nunito, ui-rounded, "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
 }
 * { box-sizing: border-box; }
@@ -137,3 +137,10 @@ code { font-size: 0.85em; background: rgba(42,36,32,.07); padding: 1px 4px; bord
   .panel { top: auto; height: 60%; left: 8px; right: 8px; width: auto; bottom: 8px; }
   .feed { display: none; }
 }
+
+/* line icons */
+.icon { display: inline-block; vertical-align: -0.2em; flex: none; }
+button .icon + .label { margin-left: 2px; }
+.panel h2 { display: flex; align-items: center; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; }
+.speed button { display: inline-flex; align-items: center; justify-content: center; }

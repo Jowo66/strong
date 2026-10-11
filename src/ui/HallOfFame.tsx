@@ -6,6 +6,7 @@ import { topMoments } from '../sim/chronicle';
 import { useUi } from '../store/ui';
 import type { TitleRecord } from '../sim/types';
 import { fullName } from '../sim/names';
+import { Icon } from './Icon';
 
 const CATEGORY_LABEL = { annual: 'Annual Champions', reputation: 'Gym Reputation', milestone: 'Milestones' } as const;
 
@@ -34,7 +35,7 @@ export function HallOfFame() {
 
   return (
     <section className="panel" aria-label="Hall of Fame">
-      <header><h2>🏆 Hall of Fame</h2><button onClick={() => close('hall')} aria-label="Close">✕</button></header>
+      <header><h2><Icon name="trophy" size={20} /> Hall of Fame</h2><button onClick={() => close('hall')} aria-label="Close"><Icon name="close" /></button></header>
       {!titles.length && <p className="muted">No legends yet. Give it a few days: titles appear as members rack up PRs, Flex-Off wins and questionable habits.</p>}
       {(Object.keys(CATEGORY_LABEL) as (keyof typeof CATEGORY_LABEL)[]).map((cat) => {
         const list = byCat(cat);

@@ -6,8 +6,8 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 |---|---|---|
 | M0 | Scaffold and deploy | ✅ Done |
 | M1 | Living gym core | ✅ Done (placeholder art) |
-| M2 | Diorama look | ⬜ Next |
-| M3 | Movement and behaviour polish | ⬜ |
+| M2 | Diorama look | ✅ Done (code-built art; glTF swap optional) |
+| M3 | Movement and behaviour polish | ⬜ Next |
 | M4 | Social and humour depth | ⬜ |
 | M5 | Gym Legends: full presentation | 🟨 Systems done, presentation pending |
 | M6 | The player | 🟨 Aura done |
@@ -36,9 +36,18 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 
 **Acceptance:** 12 automated tests pass (names, routines, progression calibration, titles, two simulated days, construction, catch-up across new year, reshuffle).
 
-## M2 — Diorama look (next)
+## M2 — Diorama look ✅
 
 **Goal:** it looks like a miniature you want to keep watching.
+
+**Shipped as code-built art** (no downloaded models yet; see [ART_AND_ASSETS.md](ART_AND_ASSETS.md) §0):
+- Characters: a procedural toy figure rigidly skinned to a 15-bone rig, one skinned mesh per outfit (gym / street). Look derived per member: outfit cut (tee, tank, sports top, long sleeve, shorts, leggings, joggers), build and muscle, belly, 9 hair styles, facial hair, glasses, headphones (Headphones-In), lifting belt, wristbands. Crew: hard hat, hi-vis vest, tool belt. Faces blink, talk, grin and frown.
+- A pose for every `anim` and every exercise (lying bench press, squats, deadlifts, curls, pull-ups, treadmill, bike, rower, planks…), with barbells loaded to the member's real working weight and dumbbells in hand.
+- Equipment E1–E12 and room props P1–P12, each merged into one vertex-coloured mesh. Lockers open while members change, treadmill belts move, bike flywheels spin, bars carry the resting member's plates (and a Rerack Avoider's leftovers), the wall clock shows gym time.
+- Lighting: warm key light with soft shadows, cool fill, N8AO ambient occlusion, tuned tilt-shift; a Detail setting (Low = no AO, smaller shadows, 1× pixel ratio).
+- Self-hosted Nunito font and an SVG icon set.
+
+**Measured** (headless Chrome, 1920×1080, 40 members + 12 crew): 355 draw calls; ~231k scene triangles (~3.5k per member); sim 0.05 ms per step. Frame rate on a real mid-range laptop still needs a manual check.
 
 - Character base meshes, hair, outfits and crew from [ART_AND_ASSETS.md](ART_AND_ASSETS.md) §2–3, using `useGLTF` + `useAnimations`
 - Equipment models (E1–E13) and room props (P1–P12)

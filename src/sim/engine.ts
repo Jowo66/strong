@@ -907,7 +907,7 @@ export class SimEngine {
     const crew: CrewMember[] = [0, 1, 2].map((i) => {
       const target = { x: st.pos.x + (i - 1) * 0.7, z: st.pos.z + 0.9 };
       const start = { x: entrance.x + i * 0.4, z: entrance.z + i * 0.3 };
-      return { id: `c${this.save.seq}-${i}`, pos: start, path: [{ x: entrance.x, z: 4.5 }, { x: target.x, z: 4.5 }, target], anim: 'walk', bubble: null };
+      return { id: `c${this.save.seq}-${i}`, slot: i, pos: start, facing: Math.PI, path: [{ x: entrance.x, z: 4.5 }, { x: target.x, z: 4.5 }, target], anim: 'walk', bubble: null };
     });
     crew[0].bubble = { text: this.rng.pick(this.c.dialogue.crew[kind === 'build' ? 'arrive' : 'remove']), ttl: 2.5 };
     this.jobs.push({ id: `job${this.save.seq}`, kind, stationId: st.id, stage: 'arriving', timer: 0, crew, requestedBy, gag: null });
@@ -924,9 +924,10 @@ export class SimEngine {
       switch (job.stage) {
         case 'arriving': {
           let done = true;
-          for (const m of job.crew) if (!this.move(m.pos, m.path, h, CREW_SPEED).done) done = false;
+          for (const m of job.crew) if (!this.moveCrew(m, h)) done = false;
           if (!done) break;
           job.stage = 'working';
+          if (st) for (const m of job.crew) m.facing = Math.atan2(st.pos.x - m.pos.x, st.pos.z - m.pos.z);
           job.timer = job.kind === 'build' ? this.c.events.construction.buildSeconds : 3;
           for (const m of job.crew) m.anim = 'build';
           if (job.kind === 'build' && st && this.rng.chance(this.c.events.construction.gagChance)) {
@@ -969,12 +970,18 @@ export class SimEngine {
           break;
         case 'leaving': {
           let done = true;
-          for (const m of job.crew) if (!this.move(m.pos, m.path, h, CREW_SPEED).done) done = false;
+          for (const m of job.crew) if (!this.moveCrew(m, h)) done = false;
           if (done) { this.jobs = this.jobs.filter((j) => j !== job); this.version++; }
           break;
         }
       }
     }
+  }
+
+  private moveCrew(m: CrewMember, h: number): boolean {
+    const r = this.move(m.pos, m.path, h, CREW_SPEED);
+    if (r.facing !== undefined) m.facing = r.facing;
+    return r.done;
   }
 
   private beginLeaving(job: CrewJob): void {

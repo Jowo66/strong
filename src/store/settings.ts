@@ -14,6 +14,7 @@ export interface Settings {
   nativeNameOrder: boolean;
   mixNationalities: boolean;
   tiltShift: boolean;
+  detail: 'high' | 'low';   // low: no ambient occlusion, smaller shadows, 1× pixel ratio
   auraColour: string;
   set: (patch: Partial<Omit<Settings, 'set'>>) => void;
 }
@@ -32,6 +33,7 @@ export const useSettings = create<Settings>()(
       nativeNameOrder: false,
       mixNationalities: false,
       tiltShift: true,
+      detail: 'high',
       auraColour: 'gold',
       set: (patch) => set(patch),
     }),

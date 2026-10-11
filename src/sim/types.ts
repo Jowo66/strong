@@ -127,7 +127,9 @@ export type AgentState =
   | 'lifting' | 'resting' | 'searching' | 'interacting'
   | 'changingOut' | 'gone';
 
-export type Anim = 'idle' | 'walk' | 'lift' | 'cardio' | 'stretch' | 'flex' | 'clap' | 'talk' | 'search' | 'powerUp' | 'celebrate' | 'build';
+export type Anim =
+  | 'idle' | 'walk' | 'lift' | 'cardio' | 'stretch' | 'flex' | 'clap' | 'talk' | 'search' | 'powerUp' | 'celebrate' | 'build'
+  | 'spot' | 'hype' | 'fistBump' | 'dramatic' | 'pretend' | 'podium';
 
 export interface RoutineItem {
   exerciseId: string;
@@ -177,7 +179,7 @@ export interface Station {
   unracked: number;       // seconds the plates stay visibly loaded
 }
 
-export interface CrewMember { id: string; pos: Vec2; path: Vec2[]; anim: Anim; bubble: Bubble | null }
+export interface CrewMember { id: string; slot: number; pos: Vec2; facing: number; path: Vec2[]; anim: Anim; bubble: Bubble | null }
 
 export interface CrewJob {
   id: string;

@@ -3,6 +3,7 @@ import { useEngine } from '../engineContext';
 import { useSettings, type GymSize } from '../store/settings';
 import { useUi } from '../store/ui';
 import { isValidSave } from '../store/save';
+import { Icon } from './Icon';
 
 export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) => void; onSave: () => void }) {
   const eng = useEngine();
@@ -36,7 +37,7 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) 
 
   return (
     <section className="panel" aria-label="Settings">
-      <header><h2>⚙️ Settings</h2><button onClick={() => close('settings')} aria-label="Close">✕</button></header>
+      <header><h2><Icon name="gear" size={20} /> Settings</h2><button onClick={() => close('settings')} aria-label="Close"><Icon name="close" /></button></header>
 
       <h3>Gym</h3>
       <label className="row">Size
@@ -53,6 +54,12 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (json: unknown) 
       <label className="row check"><input type="checkbox" checked={s.nativeNameOrder} onChange={(e) => s.set({ nativeNameOrder: e.target.checked })} /> Family name first where that's the custom (Japan, Korea, China)</label>
 
       <h3>Display &amp; accessibility</h3>
+      <label className="row">Detail
+        <select value={s.detail} onChange={(e) => s.set({ detail: e.target.value as 'high' | 'low' })}>
+          <option value="high">High (soft shadows, ambient occlusion)</option>
+          <option value="low">Low (faster on older devices)</option>
+        </select>
+      </label>
       <label className="row check"><input type="checkbox" checked={s.tiltShift} onChange={(e) => s.set({ tiltShift: e.target.checked })} /> Tilt-shift blur</label>
       <label className="row check"><input type="checkbox" checked={s.reducedMotion} onChange={(e) => s.set({ reducedMotion: e.target.checked })} /> Reduced motion</label>
       <label className="row check"><input type="checkbox" checked={s.highContrast} onChange={(e) => s.set({ highContrast: e.target.checked })} /> High contrast</label>

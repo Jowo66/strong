@@ -1,6 +1,19 @@
 # Mini Gym — Art & Asset List
 
-Everything visible in the gym today is a **procedural placeholder**: boxes, capsules and spheres built in code (`src/scene/`). The game is fully playable that way. This list covers what is needed to replace them with real art in milestone M2, without changing the simulation.
+Everything visible in the gym today is **code-built**: characters, equipment and the room are made from primitives in `src/scene/` (see §0). This list covers what a real art pass would replace, without changing the simulation.
+
+## 0. Current code-built art (M2)
+
+| Area | Where | Notes |
+|---|---|---|
+| Characters (C1–C9) | `src/scene/character/` | `look.ts` derives a look per member; `rig.ts` builds one skinned mesh per outfit on a 15-bone rig (root, hips, spine, head, arms, forearms, thighs, shins, mouth, brows, eyes); `poses.ts` holds every pose. |
+| Animations | `poses.ts` | Procedural poses per `anim` and per exercise, blended each frame. Swapping in clips later means mapping the same names to `useAnimations`. |
+| Equipment (E1–E13) | `src/scene/Stations.tsx` | One merged vertex-coloured mesh per station type; live parts (rack bar, plates, belt, flywheel, construction kit) are separate. |
+| Room (P1–P12) | `src/scene/Room.tsx` | Static props merged; lockers, clock, speakers and the Hall of Fame wall are live. |
+| Floors, posters, signs | `src/scene/labels.ts` | Canvas-drawn textures (original artwork), zone labels painted into the floor. |
+| Icons, font | `src/ui/Icon.tsx`, `@fontsource-variable/nunito` | Original SVG line icons; Nunito (OFL) bundled by Vite. |
+
+To check characters up close, open the app with `?lineup`.
 
 **Style target:** a miniature diorama. Soft, warm light; chunky, slightly toy-like proportions; matte materials; strong, readable silhouettes from a high three-quarter camera. Think tilt-shift photo of a tabletop model, not a realistic gym.
 

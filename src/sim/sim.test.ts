@@ -9,6 +9,7 @@ import { evaluateTitles, awardAnnual, featuredTitle, titleLabel } from './legend
 import { recordMoment, type Chronicle } from './chronicle';
 import { SimEngine, STEP } from './engine';
 import type { SaveData } from './types';
+import { footprint, overlaps } from './footprint';
 
 const settings = { dayLength: 600, cap: 25, members: 50, mixChance: 0 };
 
@@ -28,6 +29,23 @@ describe('content', () => {
   });
   it('dialogue, titles and moments reference known stats', () => {
     for (const t of c.titles) if (t.stat && t.stat !== 'avgRest') expect(['visits','prs','flexOffWins','flexOffLosses','spots','overSpots','constructionTriggers','lostBottles','noReracks','photoOps','flirtFails','conversations','restSeconds','restCount','streak','bestStreak']).toContain(t.stat);
+  });
+});
+
+describe('layout', () => {
+  it('no two stations (including every temporary build slot) overlap, and all fit on the floor', () => {
+    const rects = [
+      ...c.layout.stations.map((s) => ({ name: `${s.type}@${s.x},${s.z}`, r: footprint(c, s.type, s, s.rot) })),
+      ...Object.entries(c.layout.tempSlots).flatMap(([type, slots]) => slots.map((p) => ({ name: `temp ${type}@${p.x},${p.z}`, r: footprint(c, type as never, p, 0) }))),
+    ];
+    const b = c.layout.bounds;
+    for (const { name, r } of rects) {
+      expect(r.x0 >= b.x0 && r.x1 <= b.x1 && r.z0 >= b.z0 && r.z1 <= b.z1, `${name} is off the floor`).toBe(true);
+      expect(r.x1 <= -9 && r.z0 <= -1.6, `${name} is inside the locker room`).toBe(false);
+    }
+    for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+      expect(overlaps(rects[i].r, rects[j].r), `${rects[i].name} overlaps ${rects[j].name}`).toBe(false);
+    }
   });
 });
 

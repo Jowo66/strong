@@ -4,6 +4,7 @@ import { SimEngine, type EngineSettings } from './sim/engine';
 import type { SaveData } from './sim/types';
 import { EngineContext } from './engineContext';
 import { GymScene } from './scene/GymScene';
+import { Lineup } from './scene/Lineup';
 import { TopBar } from './ui/TopBar';
 import { Tooltip } from './ui/Tooltip';
 import { Feed, Banner } from './ui/Feed';
@@ -46,7 +47,10 @@ export default function App() {
 
   useEffect(() => {
     void handleRedirect().then((justLoggedIn) => { if (justLoggedIn) useUi.getState().openPanel('music'); }).catch(() => undefined);
-    void waitForHydration().then(() => setEngine(boot(useSaveStore.getState().save)));
+    // Canvas textures (floor labels, signs) need the self-hosted font before they are drawn.
+    const fonts = document.fonts?.load(`900 32px "Nunito Variable"`).catch(() => undefined) ?? Promise.resolve();
+    const fontTimeout = new Promise((r) => setTimeout(r, 2000));
+    void Promise.all([waitForHydration(), Promise.race([fonts, fontTimeout])]).then(() => setEngine(boot(useSaveStore.getState().save)));
   }, []);
 
   const save = useCallback(() => { if (engine) useSaveStore.getState().setSave(engine.snapshot()); }, [engine]);
@@ -73,6 +77,7 @@ export default function App() {
   };
 
   if (!engine) return <div className="loading">Unlocking the gym…</div>;
+  if (new URLSearchParams(location.search).has('lineup')) return <Lineup engine={engine} />;
 
   return (
     <EngineContext.Provider value={engine}>

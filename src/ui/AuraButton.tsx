@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useEngine } from '../engineContext';
 import { useSettings } from '../store/settings';
 import { useUi } from '../store/ui';
+import { Icon } from './Icon';
 
 export function AuraButton() {
   const eng = useEngine();
@@ -13,7 +14,7 @@ export function AuraButton() {
   return (
     <div className="aura">
       <button className="aura-go" style={{ ['--aura' as string]: hex }}
-        onClick={() => { if (!eng.triggerAura()) showBanner("You're not in the gym right now."); }}>✨ Aura</button>
+        onClick={() => { if (!eng.triggerAura()) showBanner("You're not in the gym right now."); }}><Icon name="aura" /> Aura</button>
       <button className="aura-pick" aria-label="Aura colour" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <span className="swatch" style={{ background: hex }} />
       </button>

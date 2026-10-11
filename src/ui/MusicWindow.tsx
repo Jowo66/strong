@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useUi } from '../store/ui';
 import { isLoggedIn, login, logout, spotifyConfigured, REDIRECT_URI } from '../spotify/auth';
 import { connectPlayer, disconnectPlayer, getPlaylists, onNowPlaying, playPlaylist, togglePlay, type NowPlaying, type Playlist } from '../spotify/player';
+import { Icon } from './Icon';
 
 export function MusicWindow() {
   const close = useUi((s) => s.openPanel);
@@ -21,7 +22,7 @@ export function MusicWindow() {
 
   return (
     <section className="panel music" aria-label="Music">
-      <header><h2>🔊 Gym Speakers</h2><button onClick={() => close('music')} aria-label="Close">✕</button></header>
+      <header><h2><Icon name="speaker" size={20} /> Gym Speakers</h2><button onClick={() => close('music')} aria-label="Close"><Icon name="close" /></button></header>
       {!spotifyConfigured() && (
         <p className="muted">Spotify isn't set up for this build yet. Add <code>VITE_SPOTIFY_CLIENT_ID</code> (see the README) and register <code>{REDIRECT_URI}</code> as a redirect URI.</p>
       )}
@@ -39,7 +40,7 @@ export function MusicWindow() {
               <div className="now-track">{now ? now.track : 'Nothing playing'}</div>
               <div className="muted">{now?.artist ?? 'Pick a playlist'}</div>
             </div>
-            <button className="play" onClick={() => void togglePlay()} aria-label={now?.paused === false ? 'Pause' : 'Play'}>{now?.paused === false ? '⏸' : '▶'}</button>
+            <button className="play" onClick={() => void togglePlay()} aria-label={now?.paused === false ? 'Pause' : 'Play'}><Icon name={now?.paused === false ? 'pause' : 'play'} /></button>
           </div>
           {error && <p className="error">{error}</p>}
           {busy && <p className="muted">Connecting the speakers…</p>}

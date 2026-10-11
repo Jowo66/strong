@@ -115,6 +115,8 @@ The gym is a 30 × 20 unit floor (x −15…15, z −10…10). The back wall (z 
 - **lockerSpots, mirrorSpots, speakers, hallOfFame, podium, waterCooler, wanderPoints**.
 - **lockerDoor**: inside and outside waypoints. The locker room is walled except for the door.
 
+**Footprints.** `layout.json → footprints` gives each station type's local bounding box. `sim/footprint.ts` turns it into a world rectangle; a test checks that no two stations or temporary build slots overlap and that none sits off the floor or inside the locker room.
+
 **Movement (M1).** Agents walk in straight lines at 2.4 units/s along a waypoint path. `route()` adds the locker door waypoints (and a corridor waypoint at x = −8.1) whenever a path crosses into or out of the locker room. Agents may overlap; at this scale it reads as "squeezing past".
 
 **Movement (M3 plan).** Replace `route()` with A* on a 0.5-unit nav grid baked from the layout (stations as blocked cells), plus simple separation steering so agents slide around each other. The `route(from, to): Vec2[]` signature stays the same, so nothing else changes.
@@ -340,7 +342,7 @@ Runtime state (agents, crew, temporary stations) is cleared, the roster is refil
   <EffectComposer><TiltShift2/>   miniature depth-of-field (toggleable)
 ```
 
-**Per-frame contract.** `Avatar` takes a `source()` function returning `{pos, facing, anim, bubble, outfit, aura}`. Each frame it lerps position and rotation, applies the procedural animation for `anim`, swaps the shirt colour for the outfit, and writes the bubble text straight into a DOM node (drei `<Html>`). There are no React updates. The same contract will drive the glTF characters in M2: swap the meshes and map `anim` to animation clips.
+**Per-frame contract.** `Avatar` takes a `source()` function returning `{pos, facing, anim, bubble, outfit, aura, exercise, resting, stationType, weight}`. Each frame it lerps position and rotation, computes the target pose for `anim` (and the exercise while lifting), blends the 15 bones towards it, shows the gym or street mesh, places props (barbell with plates for the member's working weight, dumbbells, phone) between the hands, and writes the bubble text straight into a DOM node (drei `<Html>`). There are no React updates. A glTF character could use the same contract: swap the meshes and map `anim` to clips.
 
 **Animations (procedural, M1):** idle, walk, search, lift, cardio, stretch, flex, clap, celebrate, talk, build, powerUp. Reduced Motion scales amplitudes to 35% and disables the aura spin and pulse.
 
@@ -356,7 +358,7 @@ Runtime state (agents, crew, temporary stations) is cleared, the roster is refil
 | Sim cost | < 1 ms/frame | 40 agents ≈ 0.1 ms per step |
 | JS bundle | < 400 KB gzip | ~330 KB gzip |
 
-If draw calls become a problem (M2, glTF characters), use `InstancedMesh` for repeated equipment, merge static room geometry, and use `SkinnedMesh` with shared skeletons and texture atlases for members.
+Each member is one `SkinnedMesh` with vertex colours (rigidly skinned primitives merged into one geometry), each station type one merged geometry, and the static room a single mesh, so 40 members + 12 crew measure 355 draw calls and ~231k scene triangles.
 
 ---
 
