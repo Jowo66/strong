@@ -8,7 +8,7 @@ Everything the simulation reads lives here. Edit JSON, save, and the dev server 
 | `exercises.json` | Exercises, which station they use, starting weights, goal affinity |
 | `goals.json` | Training goals: sets, rest, progression speed, how common |
 | `traits.json` | Personality traits and how they change event chances |
-| `events.json` | Base chances for social events, crew timings |
+| `events.json` | Chances and timings: social events, crew (and its gags), breaks, rivals, recognition, work-ins, rack curls, phone calls, heavy drops, warm-ups, the awards ceremony |
 | `dialogue.json` | Every speech bubble |
 | `moments.json` | Moment types: notability, which stat they increment, feed text |
 | `titles.json` | Gym Legends titles |
@@ -16,7 +16,7 @@ Everything the simulation reads lives here. Edit JSON, save, and the dev server 
 | `population.json` | Gym sizes and arrival peaks |
 | `layout.json` | Zones, stations, station footprints, temporary build slots, obstacles members walk around, lockers, mirror, chalk spots, speakers |
 | `appearance.json` | Skin, hair and outfit palettes |
-| `aura.json` | Aura colours and duration |
+| `aura.json` | Aura colours, duration, and the chance of a golden aura on a PR |
 
 ## Add a country (names)
 
@@ -45,7 +45,11 @@ It is picked up automatically. Set `familyNameFirst: true` where the family name
 - `weight` is in lb for [beginner, intermediate, advanced] men; women are scaled by `progression.json → genderFactor`. Use `null` for bodyweight or cardio.
 - `goals`: 0 means never picked for that goal; 3 means very likely.
 - Optional: `"lift": "bench" | "squat" | "deadlift"` (tracked for PRs and annual titles), `"spot": true`, `"photoOp": true`.
-- A brand-new station type also needs entries in `layout.json` (`stations` and `tempSlots`) and a shape in `src/scene/Stations.tsx`.
+- A brand-new station type also needs entries in `layout.json` (`stations`, `footprints` and `tempSlots`), a model in `src/scene/Stations.tsx`, and a pose in `src/scene/character/poses.ts`.
+
+## Move equipment or props
+
+Edit `layout.json`. `footprints` is each station type's box (station-local, before rotation; the member approaches from local +Z). `obstacles` are the props members walk around. `npm test` checks that nothing overlaps, nothing sits off the floor, and every station, build slot, locker, mirror spot, chalk spot and the cooler can be reached from the entrance.
 
 ## Add a title
 
@@ -63,4 +67,17 @@ Available stats: `visits, prs, flexOffWins, flexOffLosses, spots, overSpots, con
 
 ## Dialogue
 
-Every list is picked from at random. Conversations are arrays of lines that alternate speakers, starting with the member who started the chat. `{name}` and `{title}` work in crew and title lines.
+Lines are picked least-recently-used: a joke only comes back once the rest of its list has had a turn, so longer lists mean less repetition. (A test checks that a 10-minute watch shows at least 8 kinds of joke with no line more than twice; if you make an event much more frequent, give its list more lines.) Conversations are arrays of lines that alternate speakers, starting with the member who started the chat.
+
+Placeholders (a line is only used when every placeholder in it can be filled):
+
+| Placeholder | Means | Where |
+|---|---|---|
+| `{you}` | the other person's first name (only once they know each other) | conversations, greetings, rival lines |
+| `{me}` | the speaker's first name | conversations |
+| `{exercise}` | the speaker's current exercise | conversations |
+| `{rival}` | the speaker's rival | conversations |
+| `{title}` | the listener's featured title | conversations, title lines |
+| `{name}` | a member's first name | crew, recognition |
+
+Some lists are pairs or scripts rather than single lines (`flexOff.mutual`, `flexOff.bothWon`, `crew.backwards`, `crew.plank`).
