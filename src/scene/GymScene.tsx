@@ -1,5 +1,6 @@
 // The R3F scene: camera, lights, room, stations, members, construction crew and the sim driver.
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { EffectComposer, N8AO, TiltShift2 } from '@react-three/postprocessing';
@@ -12,6 +13,7 @@ import { lookForCrew, lookForNpc } from './character/look';
 import { useSettings } from '../store/settings';
 import { Kit, kitMaterial } from './kit';
 import { labelTexture } from './labels';
+import { bakePending } from './portraits';
 
 const CREW_LOOKS = [0, 1, 2].map(lookForCrew);
 
@@ -29,6 +31,8 @@ function memberSource(eng: SimEngine, id: string): () => AvatarSource | undefine
     const st = a.stationId ? eng.stations.find((s) => s.id === a.stationId) : undefined;
     out.stationType = st?.type;
     out.weight = out.exercise ? Math.round((eng.save.members[id]?.weights[out.exercise] ?? 0) / 5) * 5 : undefined;
+    out.y = a.elev ?? 0;
+    out.banner = a.banner ?? null;
     return out;
   };
 }
@@ -115,20 +119,70 @@ const podiumGeo = (() => {
   return k.build();
 })();
 
+const CONFETTI = 140;
+const confettiGeo = new THREE.PlaneGeometry(0.07, 0.11);
+const CONFETTI_COLOURS = ['#E63946', '#FFD166', '#06D6A0', '#118AB2', '#EF476F', '#FFFFFF', '#8338EC'];
+
+/** The awards podium: grows while the crew builds it (sometimes facing the wall at first), confetti while winners pose. */
 function Podium() {
   const eng = useEngine();
+  const reduced = useSettings((s) => s.reducedMotion);
   const [show, setShow] = useState(false);
-  useFrame(() => { const s = !!eng.ceremony; if (s !== show) setShow(s); });
-  if (!show) return null;
+  const root = useRef<THREE.Group>(null!);
+  const confetti = useRef<THREE.InstancedMesh>(null!);
+  const grow = useRef(0);
+  const seeds = useMemo(() => Array.from({ length: CONFETTI }, (_, i) => ({ x: Math.sin(i * 12.9898) * 43758.5453 % 1, z: Math.sin(i * 78.233) * 12345.678 % 1, s: 0.6 + ((i * 37) % 10) / 20, c: i % CONFETTI_COLOURS.length })), []);
+  const m4 = useMemo(() => new THREE.Matrix4(), []), q = useMemo(() => new THREE.Quaternion(), []), e = useMemo(() => new THREE.Euler(), []), v = useMemo(() => new THREE.Vector3(), []), one = useMemo(() => new THREE.Vector3(1, 1, 1), []);
+  useFrame((state, dt) => {
+    const cer = eng.ceremony;
+    const visible = !!cer && cer.stage !== 'waiting';
+    if (visible !== show) setShow(visible);
+    if (!cer || !root.current) return;
+    const target = cer.podiumUp ? 1 : cer.stage === 'building' ? 0.35 + 0.1 * Math.sin(state.clock.elapsedTime * 6) : 0;
+    grow.current += (target - grow.current) * Math.min(1, dt * 3);
+    root.current.scale.set(1, Math.max(0.01, grow.current), 1);
+    root.current.rotation.y += ((Math.PI / 2 + cer.podiumRot) - root.current.rotation.y) * Math.min(1, dt * 5);
+    const party = (cer.stage === 'posing' || cer.stage === 'speech') && !reduced;
+    confetti.current.visible = party;
+    if (party) {
+      const t = state.clock.elapsedTime;
+      seeds.forEach((sd, i) => {
+        const fall = (t * 0.45 * sd.s + sd.x * 7) % 1;
+        v.set(Math.abs(sd.x) * 3.2 - 0.6, 3.4 - fall * 3.4, (sd.z) * 2.2);
+        e.set(t * 3 * sd.s + i, t * 2 + i, 0);
+        m4.compose(v, q.setFromEuler(e), one);
+        confetti.current.setMatrixAt(i, m4);
+      });
+      confetti.current.instanceMatrix.needsUpdate = true;
+    }
+  });
+  useEffect(() => {
+    if (!confetti.current) return;
+    const c = new THREE.Color();
+    seeds.forEach((sd, i) => confetti.current.setColorAt(i, c.set(CONFETTI_COLOURS[sd.c])));
+    if (confetti.current.instanceColor) confetti.current.instanceColor.needsUpdate = true;
+  }, [show, seeds]);
   const p = eng.c.layout.podium;
+  if (!show) return null;
   return (
-    <group position={[p.x, 0, p.z]} rotation-y={Math.PI / 2}>
-      <mesh geometry={podiumGeo} material={kitMaterial} castShadow receiveShadow />
-      {([[0, 0.45, '1'], [-1.0, 0.3, '2'], [1.0, 0.2, '3']] as const).map(([x, y, n]) => (
-        <mesh key={n} position={[x, y, 0.53 + (n === '1' ? 0 : n === '2' ? 0.05 : 0.08)]}><planeGeometry args={[0.8, 0.2]} /><meshBasicMaterial map={labelTexture(n, '#3B2A06')} transparent /></mesh>
-      ))}
+    <group position={[p.x, 0, p.z]}>
+      <group ref={root} rotation-y={Math.PI / 2}>
+        <mesh geometry={podiumGeo} material={kitMaterial} castShadow receiveShadow />
+        {([[0, 0.45, '1'], [-1.0, 0.3, '2'], [1.0, 0.2, '3']] as const).map(([x, y, n]) => (
+          <mesh key={n} position={[x, y, 0.53 + (n === '1' ? 0 : n === '2' ? 0.05 : 0.08)]}><planeGeometry args={[0.8, 0.2]} /><meshBasicMaterial map={labelTexture(n, '#3B2A06')} transparent /></mesh>
+        ))}
+      </group>
+      <instancedMesh ref={confetti} args={[confettiGeo, undefined, CONFETTI]} visible={false}>
+        <meshBasicMaterial side={THREE.DoubleSide} />
+      </instancedMesh>
     </group>
   );
+}
+
+/** Bakes member portraits (Hall of Fame wall, profile cards) a couple per frame. */
+function PortraitBaker() {
+  useFrame((state) => bakePending(state.gl));
+  return null;
 }
 
 export function GymScene({ engine }: { engine: SimEngine }) {
@@ -158,6 +212,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Members />
         <Crew />
         <Podium />
+        <PortraitBaker />
         <OrbitControls makeDefault target={[0, 0, -0.5]} enablePan={false} minDistance={14} maxDistance={120}
           minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={-0.6} maxAzimuthAngle={0.9} enableDamping />
         {(tiltShift || high) && (

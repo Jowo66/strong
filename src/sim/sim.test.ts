@@ -223,6 +223,44 @@ describe('engine', () => {
     expect(longestWaitWithoutBuild).toBeLessThanOrEqual(c.events.construction.waitBeforeSkip + STEP + 1e-6);
   });
 
+  it('runs a simulated year, then stages the awards ceremony with at least 3 winners on the podium', () => {
+    const save = SimEngine.createSave(c, { members: 50, mixChance: 0, seed: 21, createdAt: '2026-01-01' });
+    const eng = new SimEngine(c, save, settings, 21);
+    while (eng.isoToday() < '2026-12-31') eng.catchUp(Math.min(30, 364 - eng.save.day));
+    expect(eng.isoToday()).toBe('2026-12-31');
+    let maxOnStage = 0, sawPosing = false, sawBuild = false, crowd = 0;
+    const stages = new Set<string>();
+    for (let i = 0; i < Math.round((settings.dayLength * 1.6) / STEP); i++) {
+      eng.step(STEP);
+      const cer = eng.ceremony;
+      if (!cer) continue;
+      stages.add(cer.stage);
+      if (cer.stage === 'building') sawBuild = true;
+      if (cer.stage === 'posing') {
+        sawPosing = true;
+        maxOnStage = Math.max(maxOnStage, cer.onStage.length);
+        crowd = Math.max(crowd, cer.called.length - cer.onStage.length);
+        for (const id of cer.onStage) {
+          const place = cer.winners.find((w) => w.npcId === id)!.place;
+          if (place < 3) expect(eng.agents.get(id)?.elev, 'podium winners stand on their block').toBeGreaterThan(0);
+        }
+      }
+    }
+    expect(sawBuild).toBe(true);
+    expect(sawPosing).toBe(true);
+    expect(maxOnStage).toBeGreaterThanOrEqual(3);
+    expect(crowd).toBeGreaterThan(0);
+    expect(eng.ceremony).toBeNull(); // the crew packed the podium away
+    expect(eng.save.pendingCeremonyYear).toBeUndefined();
+    const review = eng.save.yearReviews?.['2026'];
+    expect(review?.legends.length).toBeGreaterThanOrEqual(3);
+    expect(review?.biggestPr).not.toBeNull();
+    // profile cards: regulars have a timeline of at least 3 moments
+    const regulars = Object.values(eng.save.members).filter((m) => m.attendance >= c.progression.regularThreshold);
+    expect(regulars.length).toBeGreaterThan(5);
+    for (const r of regulars) expect(r.moments.length, `${r.firstName} has too few moments`).toBeGreaterThanOrEqual(3);
+  });
+
   it('catches up missed days and hands out annual titles at new year', () => {
     const eng = new SimEngine(c, saveWith(40), settings, 9);
     const r = eng.catchUp(20);

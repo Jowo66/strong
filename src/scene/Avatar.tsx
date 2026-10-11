@@ -19,6 +19,8 @@ export interface AvatarSource {
   pos: Vec2; facing: number; anim: Anim; bubble: Bubble | null;
   outfit?: 'street' | 'gym'; aura?: number;
   exercise?: string; resting?: boolean; stationType?: string; weight?: number;
+  y?: number;                 // standing on something (the podium)
+  banner?: Bubble | null;     // title banner after winning
 }
 
 interface Props {
@@ -31,7 +33,7 @@ interface Props {
 
 export const SCALE = 1.25;
 
-const bodyMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0 });
+export const bodyMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0 });
 const metalMaterial = new THREE.MeshStandardMaterial({ color: '#C9CED6', roughness: 0.3, metalness: 0.7 });
 const propMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
 const plateMaterial = new THREE.MeshStandardMaterial({ roughness: 0.55 });
@@ -53,7 +55,7 @@ const hitGeo = new THREE.CapsuleGeometry(0.35, 1.0, 2, 8).translate(0, 0.9, 0);
 const noRaycast = () => undefined;
 
 const geoCache = new Map<string, { gym: THREE.BufferGeometry; street: THREE.BufferGeometry }>();
-function geometriesFor(look: CharacterLook) {
+export function geometriesFor(look: CharacterLook) {
   let g = geoCache.get(look.key);
   if (!g) {
     const dims = rigDims(look);
@@ -81,6 +83,7 @@ const AURA_N = 24;
 export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) {
   const eng = useEngine();
   const setHovered = useUi((s) => s.setHovered);
+  const openProfile = useUi((s) => s.openProfile);
   const reducedMotion = useSettings((s) => s.reducedMotion);
   const auraHex = useSettings((s) => eng.c.aura.colours.find((c) => c.id === s.auraColour)?.hex ?? '#FFC93C');
 
@@ -99,6 +102,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const auraParticles = useRef<THREE.InstancedMesh>(null!);
   const auraLight = useRef<THREE.PointLight>(null!);
   const bubbleEl = useRef<HTMLDivElement>(null!);
+  const bannerEl = useRef<HTMLDivElement>(null!);
 
   // Build the skeleton and the two outfit meshes once per look.
   const rig = useMemo(() => {
@@ -139,6 +143,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     g.position.x += (a.pos.x - g.position.x) * k;
     g.position.z += (a.pos.z - g.position.z) * k;
     g.rotation.y = lerpAngle(g.rotation.y, a.facing, Math.min(1, dt * 8));
+    g.position.y += ((a.y ?? 0) - g.position.y) * Math.min(1, dt * 8);
 
     const street = a.outfit === 'street';
     rig.gym.visible = !street;
@@ -255,13 +260,20 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       if (el.textContent !== text) el.textContent = text;
       el.style.display = text ? 'block' : 'none';
     }
+    const bn = bannerEl.current;
+    if (bn) {
+      const text = a.banner?.text ?? '';
+      if (bn.textContent !== text) bn.textContent = text;
+      bn.style.display = text ? 'block' : 'none';
+    }
   });
 
   const s = SCALE * look.height;
   return (
     <group ref={root}
       onPointerOver={hoverable ? (e) => { e.stopPropagation(); setHovered(id); } : undefined}
-      onPointerOut={hoverable ? () => setHovered(null) : undefined}>
+      onPointerOut={hoverable ? () => setHovered(null) : undefined}
+      onClick={hoverable ? (e) => { e.stopPropagation(); openProfile(id); } : undefined}>
       {hoverable && <mesh geometry={hitGeo} visible={false} />}
       {isPlayer && (
         <mesh rotation-x={-Math.PI / 2} position-y={0.02}><ringGeometry args={[0.42, 0.52, 28]} /><meshBasicMaterial color={auraHex} transparent opacity={0.9} /></mesh>
@@ -290,7 +302,10 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       </group>
       <pointLight ref={auraLight} position={[0, 1.1, 0]} color={auraHex} intensity={0} distance={5} />
       <Html position={[0, 2.2 * look.height, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-        <div ref={bubbleEl} className="bubble" style={{ display: 'none' }} />
+        <div className="above">
+          <div ref={bannerEl} className="title-banner" style={{ display: 'none' }} />
+          <div ref={bubbleEl} className="bubble" style={{ display: 'none' }} />
+        </div>
       </Html>
     </group>
   );

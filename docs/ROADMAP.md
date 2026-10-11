@@ -8,8 +8,8 @@ Each milestone ends with something playable at https://jowo66.github.io/strong/.
 | M1 | Living gym core | ✅ Done (placeholder art) |
 | M2 | Diorama look | ✅ Done (code-built art; glTF swap optional) |
 | M3 | Movement and behaviour polish | ✅ Done |
-| M4 | Social and humour depth | ⬜ (after M5) |
-| M5 | Gym Legends: full presentation | 🟨 Next |
+| M4 | Social and humour depth | ⬜ Next |
+| M5 | Gym Legends: full presentation | ✅ Done |
 | M6 | The player | 🟨 Aura done |
 | M7 | Music and sound | 🟨 Spotify done |
 | M8 | Accessibility, performance, launch | 🟨 Basics done |
@@ -80,7 +80,10 @@ Shipped: nav grid + A* + string-pulling + separation steering (`sim/nav.ts`); ap
 
 **Acceptance:** in a 10-minute watch at 1×, at least 8 distinct humour beats appear and none repeats more than twice.
 
-## M5 — Gym Legends: full presentation
+## M5 — Gym Legends: full presentation ✅
+
+Shipped: a staged awards ceremony (winners turn up early; the crew builds the podium, sometimes backwards; winners walk up and stand on their blocks with gold banners; a crowd gathers and claps; confetti; a speech; the crew packs up), real portraits on the Hall of Fame wall and in the panels (render-to-texture), member profile cards (click anyone), title banners for 5 s after winning, legend recognition (nods, double takes, copying the Mirror Champion), and a year-in-review card that opens on awards day and stays in the Hall of Fame. The acceptance check is an automated test.
+
 
 Systems shipped in M1; this milestone makes them *felt*.
 

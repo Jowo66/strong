@@ -14,6 +14,7 @@
     "flirtFail":     { "notability": 2, "stat": "flirtFails",           "feed": "{name} said hi to {other}. {other} was on their rest timer." },
     "streak":        { "notability": 5,                                  "feed": "{name} is on a {detail}-day streak." },
     "titleWon":      { "notability": 9,                                  "feed": "{name} is now {detail}!" },
-    "titleLost":     { "notability": 5,                                  "feed": "{name} is now {detail}." }
+    "titleLost":     { "notability": 5,                                  "feed": "{name} is now {detail}." },
+    "ceremony":      { "notability": 8,                                  "feed": "{name} took a bow at the awards as {detail}." }
   }
 }

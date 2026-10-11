@@ -11,6 +11,11 @@ export function Feed() {
   useEffect(() => eng.subscribeFeed((f) => {
     setItems((xs) => [...xs, f].slice(-5));
     if (f.kind === 'ceremony' || (f.kind === 'title' && f.npcId === eng.player?.id)) showBanner(f.text);
+    // awards day: the year-in-review card opens itself (unless another panel is open)
+    if (f.kind === 'ceremony' && eng.ceremony?.stage === 'waiting') {
+      const ui = useUi.getState();
+      if (!ui.panel && eng.save.yearReviews?.[String(eng.ceremony.year)]) ui.openReview(eng.ceremony.year);
+    }
   }), [eng, showBanner]);
   if (!items.length) return null;
   return (

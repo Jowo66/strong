@@ -63,6 +63,14 @@
   },
   "ceremony": {
     "announce": ["The {year} Gym Legends Awards!"],
-    "winner": ["I'd like to thank the bench.", "This is for the regulars.", "*flexes on podium*"]
+    "winner": ["I'd like to thank the bench.", "This is for the regulars.", "*flexes on podium*", "I'd like to thank my spotter. And my other spotter.", "Mum, I made it.", "Rerack your weights. That's my speech."],
+    "host": ["And the winner is…", "Please hold your applause.", "Tiny gym. Huge honour.", "Podium is load-tested. Mostly."],
+    "crowd": ["👏", "Speech!", "*sniffs*", "Legend.", "WOOO!", "*claps politely*"],
+    "podium": ["One podium, coming up!", "Ceremony! Look busy!"]
+  },
+  "recognition": {
+    "nod": ["*nods respectfully*", "*respectful nod*"],
+    "doubleTake": ["Wait, is that {name}?", "…{name}?!", "*double take*"],
+    "imitate": ["*copies {name}'s pose*", "*tries the {name} pose*"]
   }
 }

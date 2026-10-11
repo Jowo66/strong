@@ -57,6 +57,21 @@
     "gagChance": 0.5
   },
   "waitBeforeBuild": 3,
+  "recognition": {
+    "_notes": "Members near a title holder sometimes react: a nod, a double take, or (for the Mirror Champion) copying the pose. Rolled once per second per nearby pair; each pair at most once a minute.",
+    "perSecond": 0.05,
+    "radius": 3.5,
+    "cooldown": 60,
+    "kinds": { "nod": 0.5, "doubleTake": 0.35, "imitate": 0.15 }
+  },
+  "ceremony": {
+    "startAt": 0.12,
+    "winnersArrive": [0.04, 0.09],
+    "gatherSeconds": 45,
+    "poseSeconds": 7,
+    "speechSeconds": 5,
+    "crowd": 8
+  },
   "breaks": {
     "_notes": "Between exercises a member may wander off: water at the cooler, a mirror check, chalk before a heavy lift, or a phone scroll on the spot.",
     "chance": 0.3,

@@ -44,8 +44,9 @@ export class NavGrid {
   }
 
   /** Re-block station footprints. Call whenever a station is added or removed. */
-  setStations(stations: Station[]): void {
+  setStations(stations: Station[], extra: { x0: number; x1: number; z0: number; z1: number }[] = []): void {
     this.blocked.set(this.base);
+    for (const r of extra) this.markRect(this.blocked, r.x0, r.x1, r.z0, r.z1, AGENT_RADIUS);
     for (const s of stations) {
       const r = footprint(this.c, s.type, s.pos, s.rot);
       this.markRect(this.blocked, r.x0, r.x1, r.z0, r.z1, AGENT_RADIUS);

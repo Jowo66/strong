@@ -9,6 +9,8 @@ import type { Vec2, ZoneId } from '../sim/types';
 import { floorTexture, labelTexture, plaqueTexture, posterTexture, whiteboardTexture, windowTexture, type FloorKind } from './labels';
 import { useUi } from '../store/ui';
 import { Kit, kitMaterial } from './kit';
+import { portraitFor } from './portraits';
+import { lookForNpc } from './character/look';
 
 const WALL = '#F3EDE2', WALL_HC = '#FFFFFF', TRIM = '#D8CCB8', SKIRT = '#A68A64';
 const FLOOR_KIND: Record<ZoneId, FloorKind> = {
@@ -282,23 +284,17 @@ function Clock() {
 function HallFrames() {
   const eng = useEngine();
   usePoll(3000);
-  const holders = eng.save.titles.filter((t) => t.current).slice(-8);
+  const holders = eng.save.titles.filter((t) => t.current && !t.holderLeft).slice(-8);
   return (
     <group>
       {Array.from({ length: 8 }, (_, i) => {
-        const filled = i < holders.length;
-        const member = filled ? eng.save.members[holders[i].holderId] : undefined;
+        const rec = holders[i];
+        const member = rec ? eng.save.members[rec.holderId] : undefined;
+        const tex = member ? portraitFor(lookForNpc(member)).rt.texture : null;
         return (
           <group key={i} position={[-0.95 + (i % 4) * 0.63, 0.08 - Math.floor(i / 4) * 0.58, 0.05]}>
-            <mesh><planeGeometry args={[0.5, 0.46]} /><meshStandardMaterial color={filled ? '#D4A373' : '#3E2A1E'} /></mesh>
-            {filled && (
-              <>
-                <mesh position={[0, -0.01, 0.01]}><planeGeometry args={[0.4, 0.36]} /><meshStandardMaterial color="#FFF3D6" /></mesh>
-                <mesh position={[0, 0.03, 0.02]}><circleGeometry args={[0.1, 16]} /><meshStandardMaterial color={member?.appearance.skin ?? '#D4A373'} /></mesh>
-                <mesh position={[0, 0.09, 0.025]}><circleGeometry args={[0.1, 16, 0, Math.PI]} /><meshStandardMaterial color={member?.appearance.hair ?? '#3B2416'} /></mesh>
-                <mesh position={[0, -0.12, 0.02]}><planeGeometry args={[0.26, 0.1]} /><meshStandardMaterial color={member?.appearance.shirt ?? '#457B9D'} /></mesh>
-              </>
-            )}
+            <mesh><planeGeometry args={[0.5, 0.46]} /><meshStandardMaterial color={rec ? '#D4A373' : '#3E2A1E'} /></mesh>
+            {tex && <mesh position={[0, 0, 0.01]}><planeGeometry args={[0.4, 0.38]} /><meshBasicMaterial map={tex} toneMapped={false} /></mesh>}
           </group>
         );
       })}

@@ -15,6 +15,8 @@ import { awardAnnual, ensureYear, evaluateTitles, featuredTitle, titleLabel } fr
 import { applyTitleChanges, recordMoment, type Chronicle } from './chronicle';
 import { fullName, nameKey } from './names';
 import { formatDate, isoForDay, todayIso, yearForDay } from './calendar';
+import { computeYearReview } from './review';
+import type { Rect } from './footprint';
 
 export interface EngineSettings {
   dayLength: number;   // real seconds per gym day
@@ -35,6 +37,24 @@ const LIFT_LABEL = { bench: 'Bench', squat: 'Squat', deadlift: 'Deadlift' } as c
 
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
 
+export type CeremonyStage = 'waiting' | 'building' | 'gathering' | 'posing' | 'speech' | 'closing';
+export interface CeremonyWinner { npcId: string; name: string; labels: string[]; place: number }
+export interface Ceremony {
+  year: number;
+  day: number;
+  stage: CeremonyStage;
+  timer: number;
+  winners: CeremonyWinner[];
+  called: string[];          // members pulled in (winners and crowd)
+  onStage: string[];         // winners who made it up
+  interactionId: string | null;
+  podiumUp: boolean;
+  podiumRot: number;         // the crew sometimes builds it backwards first
+}
+
+/** Podium blocks in podium-local X (1st in the middle) with their heights, plus two spots beside it for extra winners. */
+export const PODIUM_SPOTS = [{ x: 0, h: 0.7 }, { x: -1.0, h: 0.48 }, { x: 1.0, h: 0.32 }, { x: -1.85, h: 0 }, { x: 1.85, h: 0 }];
+
 export interface AgentInfo {
   npcId: string; name: string; title: string | null; goal: string; exercise: string | null;
   progress: string; activity: string; isPlayer: boolean; traits: string[];
@@ -53,7 +73,10 @@ export class SimEngine {
   feed: FeedItem[] = [];
   /** Bumps whenever the set of agents, stations or crew changes (React re-renders lists on this). */
   version = 0;
-  ceremony: { year: number; timer: number } | null = null;
+  ceremony: Ceremony | null = null;
+  /** Seconds of simulated time since this engine started (for cooldowns). */
+  simTime = 0;
+  private recognitionCooldown = new Map<string, number>();
   private acc = 0;
   private quiet = false; // suppresses per-event feed lines during catch-up
   private eventAcc = 0;
@@ -74,12 +97,14 @@ export class SimEngine {
       onTitle: (change) => {
         const a = this.agents.get(change.record.holderId);
         if (a && change.kind === 'won') {
-          this.say(a, `⭐ ${titleLabel(c, change.record)}`, 3.5);
+          a.banner = { text: `⭐ ${titleLabel(c, change.record)}`, ttl: 5 };
           for (const other of this.agentsNear(a.pos, 6, a.npcId)) if (this.rng.chance(0.4)) this.say(other, this.rng.pick(c.dialogue.title.react));
         }
       },
     };
     this.buildStations();
+    // reloaded on awards day before the ceremony finished: run it again
+    if (save.pendingCeremonyYear !== undefined && yearForDay(save.createdAt, save.day) === save.pendingCeremonyYear + 1) this.startCeremony(save.pendingCeremonyYear);
     this.buildSchedule(save.dayTime);
   }
 
@@ -173,6 +198,7 @@ export class SimEngine {
     }
     this.quiet = false;
     this.save.dayTime = 0;
+    if (this.ceremony && this.ceremony.day !== this.save.day) { this.ceremony = null; this.save.pendingCeremonyYear = undefined; }
     this.buildSchedule(0);
     const newTitles = Math.max(0, this.save.titles.filter((t) => t.current).length - titlesBefore);
     if (n > 0) this.pushFeed({ day: this.save.day, kind: 'info', text: `While you were away: ${n} day${n === 1 ? '' : 's'}, ${visits} visits, ${prs} PRs${newTitles ? `, ${newTitles} new title${newTitles === 1 ? '' : 's'}` : ''}. Check the Hall of Fame.` });
@@ -226,10 +252,12 @@ export class SimEngine {
     this.updateStations(h);
     this.eventAcc += h;
     if (this.eventAcc >= 1) { this.eventAcc -= 1; this.rollSocialEvents(); }
-    if (this.ceremony) { this.ceremony.timer -= h; if (this.ceremony.timer <= 0) this.ceremony = null; }
+    this.simTime += h;
+    if (this.ceremony) this.updateCeremony(h);
     let removed = false;
     for (const [id, a] of this.agents) {
       if (a.bubble) { a.bubble.ttl -= h; if (a.bubble.ttl <= 0) a.bubble = null; }
+      if (a.banner) { a.banner.ttl -= h; if (a.banner.ttl <= 0) a.banner = null; }
       if (a.aura > 0) a.aura = Math.max(0, a.aura - h);
       if (a.react > 0) { a.react -= h; if (a.react <= 0) a.anim = this.stateAnim(a); }
       if (a.state === 'gone') { this.agents.delete(id); removed = true; }
@@ -248,9 +276,10 @@ export class SimEngine {
     if (year !== prevYear) {
       const changes = awardAnnual(this.c, this.save, prevYear, this.save.day);
       applyTitleChanges(this.chronicle, changes);
+      (this.save.yearReviews ??= {})[String(prevYear)] = computeYearReview(this.c, this.save, prevYear);
       if (changes.length) {
         this.save.pendingCeremonyYear = prevYear;
-        this.ceremony = { year: prevYear, timer: this.settings.dayLength * 0.25 };
+        this.startCeremony(prevYear);
         this.pushFeed({ day: this.save.day, kind: 'ceremony', text: `🏆 The ${prevYear} Gym Legends Awards are on today!` });
       }
     }
@@ -263,8 +292,11 @@ export class SimEngine {
     for (const npc of Object.values(this.save.members)) {
       if (this.agents.has(npc.id)) continue;
       let frac: number;
+      const cer = this.ceremony;
       if (npc.isPlayer) frac = 0.02;
-      else {
+      else if (cer && cer.stage === 'waiting' && cer.winners.some((w) => w.npcId === npc.id)) {
+        frac = this.rng.range(this.c.events.ceremony.winnersArrive[0], this.c.events.ceremony.winnersArrive[1]); // winners turn up for the awards
+      } else {
         if (!this.rng.chance(npc.attendance)) continue;
         const k = this.rng.weightedKey({ morning: arr.morning.share, evening: arr.evening.share, uniform: arr.uniform.share });
         frac = k === 'uniform' ? this.rng.range(arr.uniform.from, arr.uniform.to)
@@ -340,7 +372,7 @@ export class SimEngine {
    * Waypoints from `from` to `to` on the nav grid. Members standing on a station first step off to its
    * approach point; with `via`, the path ends at that station's approach point and then steps onto `to`.
    */
-  private plan(from: Vec2, to: Vec2, via?: Station | null, own?: string | null): Vec2[] {
+  private plan(from: Vec2, to: Vec2, via?: Station | null, own?: string | null, stepOn = false): Vec2[] {
     const out: Vec2[] = [];
     let start = from;
     if (!this.nav.isFree(from)) {
@@ -351,16 +383,16 @@ export class SimEngine {
     const goal = via ? this.nav.nearestFree(approachPoint(this.c, via)) : this.nav.nearestFree(to);
     const mid = this.nav.findPath(start, goal) ?? [goal];
     out.push(...mid);
-    if (via) out.push({ ...to });
+    if (via || stepOn) out.push({ ...to });
     return out;
   }
 
-  private goTo(a: Agent, target: Vec2, after: AgentState, afterTimer: number | null = null, via: Station | null = null): void {
+  private goTo(a: Agent, target: Vec2, after: AgentState, afterTimer: number | null = null, via: Station | null = null, stepOn = false): void {
     if (!this.nav.isFree(a.pos)) {
       const leaving = this.stationAt(a.pos, a.stationId ?? a.lastStationId);
       if (leaving && leaving.id !== a.stationId) a.lastStationId = leaving.id;
     }
-    a.path = this.plan(a.pos, target, via, a.stationId ?? a.lastStationId);
+    a.path = this.plan(a.pos, target, via, a.stationId ?? a.lastStationId, stepOn);
     a.dest = { to: { ...target }, viaId: via?.id ?? null };
     a.state = 'walking';
     a.after = after;
@@ -370,7 +402,7 @@ export class SimEngine {
 
   /** After stations change (a build starts or a temporary station goes), re-route anyone whose path is now blocked. */
   private refreshNav(): void {
-    this.nav.setStations(this.stations);
+    this.nav.setStations(this.stations, this.ceremony && (this.ceremony.podiumUp || this.ceremony.stage === 'building') ? [this.podiumRect()] : []);
     for (const a of this.agents.values()) {
       if ((a.state !== 'walking' && a.state !== 'searching') || !a.dest) continue;
       let prev = a.pos, blocked = false;
@@ -767,6 +799,7 @@ export class SimEngine {
   }
 
   private rollSocialEvents(): void {
+    this.rollRecognition();
     const ev = this.c.events;
     const resting = [...this.agents.values()].filter((a) => this.available(a));
     for (const a of resting) {
@@ -808,6 +841,7 @@ export class SimEngine {
   private resume(a: Agent): void {
     const p = a.paused ?? { state: 'choosing' as AgentState, timer: 0 };
     a.paused = null;
+    a.elev = 0;
     a.interactionId = null;
     const st = this.station(a.stationId);
     if (st && dist(a.pos, st.pos) > 0.3) this.goTo(a, st.pos, p.state, p.timer, st);
@@ -871,6 +905,7 @@ export class SimEngine {
   }
 
   private updateInteraction(it: Interaction, h: number): void {
+    if (it.type === 'ceremony') return; // driven by updateCeremony
     const [a, b] = it.participants.map((id) => this.agents.get(id));
     if (!a || !b) { this.endInteraction(it); return; }
     const d = this.c.dialogue;
@@ -982,7 +1017,7 @@ export class SimEngine {
 
   private buildStations(): void {
     this.buildStationList();
-    this.nav.setStations(this.stations);
+    this.refreshNav();
   }
 
   private buildStationList(): void {
@@ -1030,17 +1065,22 @@ export class SimEngine {
   }
 
   private startJob(kind: CrewJob['kind'], st: Station, requestedBy: string | null): void {
+    const f = this.c.layout.footprints[st.type];
+    const targets = [0, 1, 2].map((i) => stationLocal(st, (i - 1) * 0.65, f.z1 + 0.45));
+    this.startCrew(kind, st.id, targets, requestedBy, this.rng.pick(this.c.dialogue.crew[kind === 'build' ? 'arrive' : 'remove']));
+    if (kind === 'remove') st.building = true;
+  }
+
+  private startCrew(kind: CrewJob['kind'], stationId: string, targets: Vec2[], requestedBy: string | null, line: string): void {
     this.save.seq += 1;
     const entrance = this.c.layout.entrance;
-    const f = this.c.layout.footprints[st.type];
-    const crew: CrewMember[] = [0, 1, 2].map((i) => {
-      const target = this.nav.nearestFree(stationLocal(st, (i - 1) * 0.65, f.z1 + 0.45));
+    const crew: CrewMember[] = targets.map((t, i) => {
+      const target = this.nav.nearestFree(t);
       const start = { x: entrance.x + (i - 1) * 0.4, z: entrance.z };
       return { id: `c${this.save.seq}-${i}`, slot: i, pos: start, facing: Math.PI, path: this.plan(start, target), anim: 'walk', bubble: null };
     });
-    crew[0].bubble = { text: this.rng.pick(this.c.dialogue.crew[kind === 'build' ? 'arrive' : 'remove']), ttl: 2.5 };
-    this.jobs.push({ id: `job${this.save.seq}`, kind, stationId: st.id, stage: 'arriving', timer: 0, crew, requestedBy, gag: null });
-    if (kind === 'remove') st.building = true;
+    crew[0].bubble = { text: line, ttl: 2.5 };
+    this.jobs.push({ id: `job${this.save.seq}`, kind, stationId, stage: 'arriving', timer: 0, crew, requestedBy, gag: null });
     this.version++;
   }
 
@@ -1056,8 +1096,14 @@ export class SimEngine {
           for (const m of job.crew) if (!this.moveCrew(m, h)) done = false;
           if (!done) break;
           job.stage = 'working';
-          if (st) for (const m of job.crew) m.facing = Math.atan2(st.pos.x - m.pos.x, st.pos.z - m.pos.z);
-          job.timer = job.kind === 'build' ? this.c.events.construction.buildSeconds : 3;
+          const focus = st?.pos ?? (job.kind === 'podium' || job.kind === 'podiumRemove' ? this.c.layout.podium : null);
+          if (focus) for (const m of job.crew) m.facing = Math.atan2(focus.x - m.pos.x, focus.z - m.pos.z);
+          job.timer = job.kind === 'build' || job.kind === 'podium' ? this.c.events.construction.buildSeconds : 3;
+          if (job.kind === 'podium' && this.ceremony && this.rng.chance(this.c.events.construction.gagChance)) {
+            job.gag = 'backwards';
+            this.ceremony.podiumRot = Math.PI;
+            this.crewSay(job.crew[1], d.backwards[0]);
+          }
           for (const m of job.crew) m.anim = 'build';
           if (job.kind === 'build' && st && this.rng.chance(this.c.events.construction.gagChance)) {
             job.gag = this.rng.chance(0.5) ? 'backwards' : 'drop';
@@ -1070,7 +1116,24 @@ export class SimEngine {
           const before = job.timer;
           job.timer -= h;
           if (job.gag === 'backwards' && st && before > 3 && job.timer <= 3) { st.rot -= Math.PI; this.crewSay(job.crew[0], d.backwards[1]); }
+          if (job.gag === 'backwards' && job.kind === 'podium' && this.ceremony && before > 3 && job.timer <= 3) { this.ceremony.podiumRot = 0; this.crewSay(job.crew[0], d.backwards[1]); }
           if (job.timer > 0) break;
+          if (job.kind === 'podium') {
+            job.stage = 'celebrating';
+            job.timer = 2;
+            for (const m of job.crew) m.anim = 'celebrate';
+            this.crewSay(job.crew[2], this.rng.pick(d.celebrate));
+            if (this.ceremony) { this.ceremony.podiumUp = true; this.ceremony.stage = 'gathering'; this.ceremony.timer = this.c.events.ceremony.gatherSeconds; }
+            this.refreshNav();
+            break;
+          }
+          if (job.kind === 'podiumRemove') {
+            this.ceremony = null;
+            this.refreshNav();
+            this.version++;
+            this.beginLeaving(job);
+            break;
+          }
           if (job.kind === 'build' && st) {
             st.building = false;
             job.stage = 'celebrating';
@@ -1126,6 +1189,177 @@ export class SimEngine {
       if (s.occupant || s.reservedBy || s.building) { s.idle = 0; continue; }
       s.idle += h;
       if (s.idle > this.c.events.construction.removeAfterIdle && !this.jobs.some((j) => j.stationId === s.id)) this.startJob('remove', s, null);
+    }
+  }
+
+  // ---------- Gym Legends: awards ceremony and recognition ----------
+
+  private podiumRect(): Rect {
+    const p = this.c.layout.podium;
+    return { x0: p.x - 0.55, x1: p.x + 0.55, z0: p.z - 1.95, z1: p.z + 1.95 };
+  }
+
+  /** Where winner number `i` stands (on a block, or beside the podium for 4th and 5th). The podium faces +X. */
+  podiumSpot(i: number): { pos: Vec2; h: number } {
+    const p = this.c.layout.podium, s = PODIUM_SPOTS[Math.min(i, PODIUM_SPOTS.length - 1)];
+    return { pos: { x: s.h ? p.x : p.x + 0.85, z: p.z - s.x }, h: s.h };
+  }
+
+  private startCeremony(year: number): void {
+    const winners: CeremonyWinner[] = [];
+    const order = ['benchKing', 'benchQueen', 'squatMonarch', 'mostImproved', 'mostConsistent'];
+    const recs = this.save.titles.filter((t) => t.year === year && this.c.titleById[t.titleId]?.category === 'annual' && this.save.members[t.holderId])
+      .sort((a, b) => order.indexOf(a.titleId) - order.indexOf(b.titleId));
+    for (const r of recs) {
+      const w = winners.find((x) => x.npcId === r.holderId);
+      const label = titleLabel(this.c, r);
+      if (w) w.labels.push(label);
+      else winners.push({ npcId: r.holderId, name: r.holderName, labels: [label], place: winners.length });
+    }
+    this.ceremony = { year, day: this.save.day, stage: 'waiting', timer: 0, winners, called: [], onStage: [], interactionId: null, podiumUp: false, podiumRot: 0 };
+  }
+
+  private interruptible(a: Agent): boolean {
+    return !a.interactionId && (a.state === 'resting' || a.state === 'break' || a.state === 'waiting' || a.state === 'choosing');
+  }
+
+  private updateCeremony(h: number): void {
+    const cer = this.ceremony!;
+    const cfg = this.c.events.ceremony;
+    const L = this.settings.dayLength;
+    const d = this.c.dialogue.ceremony;
+    const isWinner = (id: string) => cer.winners.some((w) => w.npcId === id);
+    const callIn = (a: Agent, to: Vec2, stepOn: boolean) => {
+      let inter = cer.interactionId ? this.interactions.get(cer.interactionId) : undefined;
+      if (!inter) { inter = this.newInteraction('ceremony', []); cer.interactionId = inter.id; }
+      inter.participants.push(a.npcId);
+      cer.called.push(a.npcId);
+      this.pause(a, inter);
+      this.goTo(a, to, 'interacting', null, null, stepOn);
+      a.interactionId = inter.id;
+    };
+    const arrived = (id: string) => { const a = this.agents.get(id); return !!a && a.state === 'interacting' && a.path.length === 0; };
+    switch (cer.stage) {
+      case 'waiting':
+        if (this.save.dayTime >= cfg.startAt * L) {
+          cer.stage = 'building';
+          const p = this.c.layout.podium;
+          this.refreshNav();
+          this.startCrew('podium', '', [{ x: p.x + 0.95, z: p.z - 0.9 }, { x: p.x + 0.95, z: p.z }, { x: p.x + 0.95, z: p.z + 0.9 }], null, this.rng.pick(d.podium));
+          this.pushFeed({ day: this.save.day, kind: 'ceremony', text: `🏆 ${d.announce[0].replace('{year}', String(cer.year))} The crew is building the podium.` });
+        }
+        return;
+      case 'building':
+        return;
+      case 'gathering': {
+        cer.timer -= h;
+        for (const w of cer.winners) {
+          const a = this.agents.get(w.npcId);
+          if (!a || cer.called.includes(a.npcId) || !this.interruptible(a)) continue;
+          const spot = this.podiumSpot(w.place);
+          callIn(a, spot.pos, spot.h > 0);
+          this.say(a, "Oh! That's me!", 2);
+        }
+        const p = this.c.layout.podium;
+        for (const a of this.agents.values()) {
+          if (cer.called.filter((id) => !isWinner(id)).length >= cfg.crowd) break;
+          if (cer.called.includes(a.npcId) || isWinner(a.npcId) || !this.interruptible(a)) continue;
+          const n = cer.called.filter((id) => !isWinner(id)).length;
+          const spot = this.nav.nearestFree({ x: p.x + 2.1 + (n % 2) * 0.75, z: p.z - 1.5 + (Math.floor(n / 2) % 4) * 1.0 });
+          callIn(a, spot, false);
+        }
+        const present = cer.winners.filter((w) => this.agents.has(w.npcId));
+        const winnersUp = present.filter((w) => cer.called.includes(w.npcId) && arrived(w.npcId));
+        const everyoneHere = present.length > 0 && winnersUp.length === present.length;
+        if (everyoneHere || (cer.timer <= 0 && (winnersUp.length > 0 || cer.timer <= -20))) this.startPosing(cer, winnersUp.map((w) => w.npcId));
+        return;
+      }
+      case 'posing':
+        cer.timer -= h;
+        if (cer.timer <= 0) {
+          cer.stage = 'speech';
+          cer.timer = cfg.speechSeconds;
+          const first = cer.onStage.map((id) => this.agents.get(id)).find(Boolean);
+          if (first) this.say(first, this.rng.pick(d.winner), cfg.speechSeconds);
+          for (const id of cer.called) {
+            const a = this.agents.get(id);
+            if (a && !cer.onStage.includes(id) && a.state === 'interacting') { a.anim = 'clap'; if (this.rng.chance(0.3)) this.say(a, this.rng.pick(d.crowd), 2); }
+          }
+        }
+        return;
+      case 'speech':
+        cer.timer -= h;
+        if (cer.timer <= 0) this.closeCeremony(cer);
+        return;
+      case 'closing':
+        return;
+    }
+  }
+
+  private startPosing(cer: Ceremony, onStage: string[]): void {
+    const cfg = this.c.events.ceremony;
+    const d = this.c.dialogue.ceremony;
+    cer.stage = 'posing';
+    cer.timer = cfg.poseSeconds;
+    cer.onStage = onStage;
+    const p = this.c.layout.podium;
+    for (const id of cer.called) {
+      const a = this.agents.get(id);
+      if (!a || a.state !== 'interacting' || a.path.length) continue;
+      const w = cer.winners.find((x) => x.npcId === id);
+      if (w && onStage.includes(id)) {
+        a.facing = Math.PI / 2;
+        a.elev = this.podiumSpot(w.place).h;
+        a.anim = 'podium';
+        a.banner = { text: `🏆 ${w.labels.join(' · ')}`, ttl: cfg.poseSeconds + cfg.speechSeconds };
+        recordMoment(this.chronicle, id, 'ceremony', { zone: 'social', detail: w.labels.join(' & '), witnesses: cer.called.filter((x) => x !== id), silent: true });
+      } else {
+        a.facing = Math.atan2(p.x - a.pos.x, p.z - a.pos.z);
+        a.anim = 'clap';
+        if (this.rng.chance(0.4)) this.say(a, this.rng.pick(d.crowd), 2.5);
+      }
+    }
+    const host = this.jobs.find((j) => j.kind === 'podium')?.crew[0];
+    if (host) this.crewSay(host, this.rng.pick(d.host), 3);
+  }
+
+  private closeCeremony(cer: Ceremony): void {
+    cer.stage = 'closing';
+    const names = cer.onStage.map((id) => this.save.members[id]).filter((n): n is Npc => !!n).map((n) => fullName(n));
+    this.pushFeed({
+      day: this.save.day, kind: 'ceremony',
+      text: names.length ? `🏆 ${names.join(', ')} took a bow at the ${cer.year} Gym Legends Awards.` : `🏆 Nobody turned up to collect a trophy at the ${cer.year} Awards. The crew clapped anyway.`,
+    });
+    this.save.pendingCeremonyYear = undefined;
+    const inter = cer.interactionId ? this.interactions.get(cer.interactionId) : undefined;
+    if (inter) this.endInteraction(inter);
+    cer.interactionId = null;
+    const p = this.c.layout.podium;
+    this.startCrew('podiumRemove', '', [{ x: p.x + 0.95, z: p.z - 0.9 }, { x: p.x + 0.95, z: p.z }, { x: p.x + 0.95, z: p.z + 0.9 }], null, this.rng.pick(this.c.dialogue.crew.remove));
+  }
+
+  /** Members near a title holder sometimes nod, do a double take, or copy the Mirror Champion's pose. */
+  private rollRecognition(): void {
+    const ev = this.c.events.recognition;
+    const d = this.c.dialogue.recognition;
+    for (const t of this.agents.values()) {
+      if (t.interactionId || t.state === 'gone') continue;
+      const ft = featuredTitle(this.c, this.save, t.npcId);
+      if (!ft) continue;
+      const holder = this.save.members[t.npcId];
+      for (const o of this.agentsNear(t.pos, ev.radius, t.npcId)) {
+        if (o.interactionId || o.react > 0 || !(o.state === 'resting' || o.state === 'break' || o.state === 'waiting')) continue;
+        const key = `${t.npcId}|${o.npcId}`;
+        if ((this.recognitionCooldown.get(key) ?? -Infinity) > this.simTime - ev.cooldown) continue;
+        if (!this.rng.chance(ev.perSecond)) continue;
+        this.recognitionCooldown.set(key, this.simTime);
+        let kind = this.rng.weightedKey(ev.kinds) as 'nod' | 'doubleTake' | 'imitate';
+        if (kind === 'imitate' && ft.titleId !== 'mirrorChampion') kind = 'nod';
+        o.facing = Math.atan2(t.pos.x - o.pos.x, t.pos.z - o.pos.z);
+        o.anim = kind === 'nod' ? 'nod' : kind === 'doubleTake' ? 'doubleTake' : 'flex';
+        o.react = kind === 'imitate' ? 2.5 : 1.6;
+        this.say(o, this.rng.pick(d[kind]).replace('{name}', holder.firstName), 2.4);
+      }
     }
   }
 

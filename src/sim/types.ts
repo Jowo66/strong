@@ -20,7 +20,7 @@ export interface Vec2 { x: number; z: number }
 export type MomentType =
   | 'pr' | 'flexOffWin' | 'flexOffLoss' | 'flexOffDraw' | 'spot' | 'overSpot'
   | 'construction' | 'lostBottle' | 'noRerack' | 'photoOp' | 'flirtFail'
-  | 'streak' | 'titleWon' | 'titleLost';
+  | 'streak' | 'titleWon' | 'titleLost' | 'ceremony';
 
 export interface Moment {
   id: string;
@@ -118,6 +118,18 @@ export interface SaveData {
   members: Record<string, Npc>;
   titles: TitleRecord[];
   pendingCeremonyYear?: number;
+  yearReviews?: Record<string, YearReview>;
+}
+
+/** The 1 January "year in review" card. Built when the year rolls over, kept in the save. */
+export interface YearReview {
+  year: number;
+  biggestPr: { npcId: string; name: string; detail: string } | null;
+  flexOffKing: { npcId: string; name: string; wins: number } | null;
+  funniest: { npcId: string; name: string; text: string } | null;
+  mostVisits: { npcId: string; name: string; visits: number } | null;
+  legends: { titleId: string; label: string; name: string }[];
+  totals: { visits: number; prs: number; flexOffs: number; builds: number };
 }
 
 // ---------- Runtime ----------
@@ -132,7 +144,7 @@ export type BreakKind = 'water' | 'mirror' | 'chalk' | 'phone';
 export type Anim =
   | 'idle' | 'walk' | 'lift' | 'cardio' | 'stretch' | 'flex' | 'clap' | 'talk' | 'search' | 'powerUp' | 'celebrate' | 'build'
   | 'spot' | 'hype' | 'fistBump' | 'dramatic' | 'pretend' | 'podium'
-  | 'drink' | 'mirrorCheck' | 'chalk' | 'phone' | 'change';
+  | 'drink' | 'mirrorCheck' | 'chalk' | 'phone' | 'change' | 'nod' | 'doubleTake';
 
 export interface RoutineItem {
   exerciseId: string;
@@ -169,6 +181,8 @@ export interface Agent {
   queueFor?: string | null;      // station this member is queueing at
   lastStationId?: string | null; // station just left (members step off it on their way out)
   breakKind?: BreakKind | null;
+  elev?: number;                 // standing on something (the awards podium)
+  banner?: Bubble | null;        // title banner over the head after winning a title
 }
 
 export interface Station {
@@ -190,7 +204,7 @@ export interface CrewMember { id: string; slot: number; pos: Vec2; facing: numbe
 
 export interface CrewJob {
   id: string;
-  kind: 'build' | 'remove';
+  kind: 'build' | 'remove' | 'podium' | 'podiumRemove';
   stationId: string;
   stage: 'arriving' | 'working' | 'celebrating' | 'leaving';
   timer: number;
@@ -199,7 +213,7 @@ export interface CrewJob {
   gag: 'backwards' | 'drop' | null;
 }
 
-export type InteractionType = 'conversation' | 'flirt' | 'flexOff' | 'spot';
+export type InteractionType = 'conversation' | 'flirt' | 'flexOff' | 'spot' | 'ceremony';
 
 export interface Interaction {
   id: string;

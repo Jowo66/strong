@@ -7,6 +7,9 @@ import { useUi } from '../store/ui';
 import type { TitleRecord } from '../sim/types';
 import { fullName } from '../sim/names';
 import { Icon } from './Icon';
+import { lookForNpc } from '../scene/character/look';
+import { usePortraitUrl } from '../scene/portraits';
+import type { Npc } from '../sim/types';
 
 const CATEGORY_LABEL = { annual: 'Annual Champions', reputation: 'Gym Reputation', milestone: 'Milestones' } as const;
 
@@ -14,6 +17,9 @@ export function HallOfFame() {
   const eng = useEngine();
   usePoll(2000);
   const close = useUi((s) => s.openPanel);
+  const openProfile = useUi((s) => s.openProfile);
+  const openReview = useUi((s) => s.openReview);
+  const reviewYears = Object.keys(eng.save.yearReviews ?? {}).map(Number).sort((a, b) => b - a);
   const [open, setOpen] = useState<string | null>(null);
   const titles = eng.save.titles;
   const current = titles.filter((t) => t.current && !t.holderLeft);
@@ -36,6 +42,9 @@ export function HallOfFame() {
   return (
     <section className="panel" aria-label="Hall of Fame">
       <header><h2><Icon name="trophy" size={20} /> Hall of Fame</h2><button onClick={() => close('hall')} aria-label="Close"><Icon name="close" /></button></header>
+      {reviewYears.length > 0 && (
+        <div className="btns review-links">{reviewYears.map((y) => <button key={y} onClick={() => openReview(y)}><Icon name="star" size={15} /> {y} in review</button>)}</div>
+      )}
       {!titles.length && <p className="muted">No legends yet. Give it a few days: titles appear as members rack up PRs, Flex-Off wins and questionable habits.</p>}
       {(Object.keys(CATEGORY_LABEL) as (keyof typeof CATEGORY_LABEL)[]).map((cat) => {
         const list = byCat(cat);
@@ -49,11 +58,14 @@ export function HallOfFame() {
               const f = flavour(r);
               return (
                 <div key={r.id} className="hof-entry">
-                  <button className="hof-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.id)}>
-                    <span className="hof-title">{titleLabel(eng.c, r)}</span>
-                    <span className="hof-holder">{r.holderName}{def?.category === 'annual' && r.value !== undefined ? ` · ${r.value}${def.unit === '%' ? '%' : ` ${def.unit}`}` : ''}</span>
-                    {f && <span className="hof-flavour">“{f}”</span>}
-                  </button>
+                  <div className="hof-row">
+                    <Portrait npc={eng.save.members[r.holderId]} onClick={() => openProfile(r.holderId)} />
+                    <button className="hof-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.id)}>
+                      <span className="hof-title">{titleLabel(eng.c, r)}</span>
+                      <span className="hof-holder">{r.holderName}{def?.category === 'annual' && r.value !== undefined ? ` · ${r.value}${def.unit === '%' ? '%' : ` ${def.unit}`}` : ''}</span>
+                      {f && <span className="hof-flavour">“{f}”</span>}
+                    </button>
+                  </div>
                   {isOpen && (
                     <ul className="hof-moments">
                       {topMoments(eng.save, r.holderId, 3, eng.c, def?.stat).map((m) => (
@@ -77,5 +89,15 @@ export function HallOfFame() {
         </div>
       )}
     </section>
+  );
+}
+
+function Portrait({ npc, onClick }: { npc: Npc | undefined; onClick: () => void }) {
+  const url = usePortraitUrl(npc ? lookForNpc(npc) : null);
+  if (!npc) return <span className="portrait sm ph" />;
+  return (
+    <button className="portrait-btn" onClick={onClick} aria-label={`Open ${npc.firstName}'s profile`}>
+      {url ? <img className="portrait sm" src={url} alt="" width={44} height={44} /> : <span className="portrait sm ph" />}
+    </button>
   );
 }

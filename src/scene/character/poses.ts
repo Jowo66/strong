@@ -446,6 +446,18 @@ export function computePose(ctx: PoseContext): Pose {
       p.head = [0.35, 0, 0]; p.spine = [0.1, 0, w * 0.06];
       return p;
     }
+    case 'nod':
+      p.head = [Math.abs(Math.sin(t * 6)) * 0.35 * m, 0, 0];
+      p.armL = [0.05, 0, -0.1]; p.armR = [0.05, 0, 0.1];
+      p.mouth = 0.15; p.brows = 0.3;
+      return p;
+    case 'doubleTake': {
+      const k = (t % 1.6) / 1.6; // look, away, SNAP back
+      p.head = [-0.1, (k < 0.3 ? 0.5 : k < 0.55 ? -0.2 : 0.7) * m, 0];
+      p.spine = [-0.08, 0.15, 0];
+      p.mouth = k > 0.55 ? 0.7 : 0.1; p.brows = 1;
+      return p;
+    }
     case 'idle': default:
       return idlePose(p, ctx);
   }

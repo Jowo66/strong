@@ -11,6 +11,8 @@ import { Feed, Banner } from './ui/Feed';
 import { HallOfFame } from './ui/HallOfFame';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { MusicWindow } from './ui/MusicWindow';
+import { ProfileCard } from './ui/ProfileCard';
+import { YearReview } from './ui/YearReview';
 import { useSettings } from './store/settings';
 import { useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
@@ -34,7 +36,7 @@ function boot(existing: SaveData | null): SimEngine {
   }
   eng.configure(settings);
   // Add ?debug to the URL to poke the sim from the browser console: __gym.catchUp(3), __gym.agents, …
-  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) (window as unknown as { __gym: SimEngine }).__gym = eng;
+  if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) Object.assign(window, { __gym: eng, __ui: useUi });
   return eng;
 }
 
@@ -90,6 +92,8 @@ export default function App() {
         {panel === 'hall' && <HallOfFame />}
         {panel === 'settings' && <SettingsPanel onImport={onImport} onSave={save} />}
         {panel === 'music' && <MusicWindow />}
+        {panel === 'profile' && <ProfileCard />}
+        {panel === 'review' && <YearReview />}
       </div>
     </EngineContext.Provider>
   );

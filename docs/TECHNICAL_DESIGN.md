@@ -299,12 +299,30 @@ Temporary stations show a yellow hazard outline and a label tag, so they are rec
 
 ### 11.3 Awards ceremony
 
-When the year rolls over and at least one annual title was awarded, `engine.ceremony` runs for the first quarter of the new day. A podium appears in the social space and a 🏆 banner is shown. **M5** adds full choreography: the crew builds the podium (possibly backwards), winners present in the gym walk up and pose, and the crowd claps.
+When the year rolls over and at least one annual title was awarded, `engine.ceremony` runs on the first day of the new year (`events.json → ceremony`):
+
+| Stage | What happens |
+|---|---|
+| `waiting` | The winners are scheduled to arrive early (4–9% into the day). |
+| `building` | At 12% of the day the crew builds the podium in the social space; half the time it goes up facing the wall first ("Hmm." … "Other way!"). The podium blocks the nav grid. |
+| `gathering` | Winners who are resting, on a break, waiting or choosing are pulled out (an `Interaction` of type `ceremony` pauses them) and walk onto their block: 1st in the middle, 2nd and 3rd either side, 4th and 5th beside it. Up to 8 other free members form the crowd. Ends when every winner in the gym is up, or after 45 s if at least one is. |
+| `posing` | Winners stand on their blocks (`agent.elev`) in the `podium` pose with a gold banner; the crowd claps; the host crew member says a line; confetti (off in Reduced Motion). Each winner gets a `ceremony` Moment. |
+| `speech` | The top winner gives a speech; more clapping. |
+| `closing` | A feed line, everyone resumes exactly what they were doing, and the crew packs the podium away. |
+
+If the gym is reloaded on awards day before the ceremony finished (`save.pendingCeremonyYear`), it runs again.
+
+**Year in review.** `sim/review.ts` builds a card when the year rolls over and stores it in `save.yearReviews[year]`: totals, biggest PR, most Flex-Off wins, most visits, the funniest Moment (funniest kind, most witnesses) and the year's legends. It opens itself on awards day and is linked from the Hall of Fame.
+
+**Recognition.** Once a second, members resting or on a break within 3.5 units of a title holder may react (5%/s, once a minute per pair): a nod, a double take ("Wait, is that Juno?"), or, for the Mirror Champion, copying the pose.
+
+**Title banner.** Winning a title puts a gold banner over the member's head for 5 s.
 
 ### 11.4 Hall of Fame
 
-- **In the world:** a frame wall at reception with up to 8 small portraits of current holders. Click it to open the panel.
-- **Panel:** grouped Annual / Reputation / Milestones. Each entry shows a flavour line chosen from the holder's Moments that fed that title's stat, and expands to their top 3 Moments. "From the Archive" lists former holders and members who left.
+- **In the world:** a frame wall at reception with up to 8 portraits of current holders, rendered from their actual character (`scene/portraits.ts` renders head shots into render targets and PNGs, a couple per frame). Click it to open the panel.
+- **Profile card:** click any member (or a portrait in the panel) for their portrait, live activity, goal, level, visits, streak, traits, lifts, current and former titles, rivals and gym friends, and their Moments timeline.
+- **Panel:** grouped Annual / Reputation / Milestones, each with the holder's portrait. Each entry shows a flavour line chosen from the holder's Moments that fed that title's stat, and expands to their top 3 Moments. "From the Archive" lists former holders and members who left.
 
 ---
 
