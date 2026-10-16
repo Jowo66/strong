@@ -1,3 +1,4 @@
+import { resolveDetail } from '../scene/gpuTier';
 import { useRef, useState } from 'react';
 import { useEngine } from '../engineContext';
 import { useSettings, type GymSize } from '../store/settings';
@@ -57,9 +58,10 @@ export function SettingsPanel({ onImport, onSave }: { onImport: (save: SaveData)
 
       <h3>Display &amp; accessibility</h3>
       <label className="row">Detail
-        <select value={s.detail} onChange={(e) => s.set({ detail: e.target.value as 'high' | 'low' })}>
+        <select value={s.detail} onChange={(e) => s.set({ detail: e.target.value as 'auto' | 'high' | 'low' })}>
+          <option value="auto">Auto ({resolveDetail('auto') === 'high' ? 'High' : 'Low'} for this graphics chip)</option>
           <option value="high">High (soft shadows, ambient occlusion)</option>
-          <option value="low">Low (faster on older devices)</option>
+          <option value="low">Low (much faster on laptops and phones)</option>
         </select>
       </label>
       <label className="row check"><input type="checkbox" checked={s.tiltShift} onChange={(e) => s.set({ tiltShift: e.target.checked })} /> Tilt-shift blur</label>

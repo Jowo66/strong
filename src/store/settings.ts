@@ -14,7 +14,7 @@ export interface Settings {
   nativeNameOrder: boolean;
   mixNationalities: boolean;
   tiltShift: boolean;
-  detail: 'high' | 'low';   // low: no ambient occlusion, smaller shadows, 1× pixel ratio
+  detail: 'auto' | 'high' | 'low';   // auto: High on discrete GPUs, Low on integrated / mobile ones (see gpuTier.ts)
   masterVolume: number;
   muted: boolean;
   sfxOn: boolean;
@@ -27,8 +27,6 @@ export interface Settings {
 }
 
 const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-// phones and tablets start on Low detail (no ambient occlusion, smaller shadows)
-const smallDevice = typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 760);
 
 export const useSettings = create<Settings>()(
   persist(
@@ -42,7 +40,7 @@ export const useSettings = create<Settings>()(
       nativeNameOrder: false,
       mixNationalities: false,
       tiltShift: true,
-      detail: smallDevice ? 'low' : 'high',
+      detail: 'auto',
       masterVolume: 0.8,
       muted: false,
       sfxOn: true,
@@ -53,6 +51,15 @@ export const useSettings = create<Settings>()(
       auraColour: 'gold',
       set: (patch) => set(patch),
     }),
-    { name: 'mini-gym-settings', partialize: ({ set: _set, ...rest }) => rest },
+    {
+      name: 'mini-gym-settings', partialize: ({ set: _set, ...rest }) => rest,
+      // v1: "High" was the old default even on laptops with integrated graphics; move it to the new Auto
+      version: 1,
+      migrate: (old, from) => {
+        const o = (old ?? {}) as Partial<Settings>;
+        if (from < 1 && o.detail === 'high') o.detail = 'auto';
+        return o as Settings;
+      },
+    },
   ),
 );
