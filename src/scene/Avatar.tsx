@@ -2,7 +2,6 @@
 // the agent's state. No React state changes per frame: everything is written straight into Three.js objects.
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useEngine } from '../engineContext';
 import { useUi } from '../store/ui';
@@ -15,6 +14,8 @@ import { blendPose, computePose, propForPose, restPose, type Pose, type PoseCont
 import { platesFor, PLATE_COLOURS, PLATE_RADIUS } from './plates';
 import { musicPlaying } from '../store/music';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { PackRig, packData } from './character/pack';
+import { claimAuraLight, registerBubble, type BubbleSource } from './overlay';
 
 export interface AvatarSource {
   pos: Vec2; facing: number; anim: Anim; bubble: Bubble | null;
@@ -111,12 +112,20 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
   const plank = useRef<THREE.Mesh>(null!);
   const aura = useRef<THREE.Group>(null!);
   const auraParticles = useRef<THREE.InstancedMesh>(null!);
-  const auraLight = useRef<THREE.PointLight>(null!);
-  const bubbleEl = useRef<HTMLDivElement>(null!);
-  const bannerEl = useRef<HTMLDivElement>(null!);
+  const anchor = useRef<THREE.Group>(null!);
+  const speech = useRef<BubbleSource | null>(null);
+  useEffect(() => {
+    const [src, done] = registerBubble(id, anchor.current);
+    speech.current = src;
+    return done;
+  }, [id]);
 
+  // The character pack when it's loaded (it is loaded before the gym opens), else the code-built figure.
+  const pr = useMemo(() => (packData() ? new PackRig(look) : null), [look]);
+  useEffect(() => () => { pr?.dispose(); }, [pr]);
   // Build the skeleton and the two outfit meshes once per look.
   const rig = useMemo(() => {
+    if (pr) return { dims: rigDims(look), bones: [] as THREE.Bone[], byName: {} as Record<(typeof BONES)[number], THREE.Bone>, skeleton: pr.skeleton, gym: pr.gym, street: pr.street };
     const dims = rigDims(look);
     const geos = geometriesFor(look);
     const bones = createBones(dims);
@@ -136,7 +145,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     return { dims, bones, byName, skeleton, gym, street };
   }, [look]);
 
-  useEffect(() => () => { rig.skeleton.dispose(); }, [rig]);
+  useEffect(() => () => { if (!pr) rig.skeleton.dispose(); }, [rig, pr]);
 
   const variant = useMemo(() => (hashString(id) % 1000) / 1000, [id]);
   const phase = useMemo(() => variant * 17, [variant]);
@@ -167,6 +176,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     const target = computePose(c);
     blendPose(pose.current, target, Math.min(1, dt * 14));
     const p = pose.current, B = rig.byName, R = rig.dims.rest;
+    if (pr) pr.apply(p, c, dt);
+    else {
     B.hips.position.set(p.hips[0], p.hips[1], p.hips[2]);
     B.hips.rotation.set(p.hipsRot[0], p.hipsRot[1], p.hipsRot[2]);
     B.spine.rotation.set(p.spine[0], p.spine[1], p.spine[2]);
@@ -182,6 +193,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     B.mouth.scale.set(1 - p.mouth * 0.15, 1 + p.mouth * 2.6, 1);
     B.brows.position.y = R.brows.y - R.head.y + p.brows * 0.02;
     B.eyes.scale.y = p.blink;
+    }
 
     // --- props in the hands ---
     const prop: Prop = propForPose(c);
@@ -196,8 +208,9 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
     if (prop !== 'none') {
       g.updateMatrixWorld(true);
       m4.copy(g.matrixWorld).invert();
-      const hl = v1.copy(HAND).applyMatrix4(B.foreL.matrixWorld).applyMatrix4(m4);
-      const hr = v2.copy(HAND).applyMatrix4(B.foreR.matrixWorld).applyMatrix4(m4);
+      const hl = (pr ? pr.hand('L', v1) : v1.copy(HAND).applyMatrix4(B.foreL.matrixWorld)).applyMatrix4(m4);
+      const hr = (pr ? pr.hand('R', v2) : v2.copy(HAND).applyMatrix4(B.foreR.matrixWorld)).applyMatrix4(m4);
+      const foreQ = (side: 'L' | 'R', out: THREE.Quaternion) => (pr ? pr.foreQuat(side, out) : (side === 'L' ? B.foreL : B.foreR).getWorldQuaternion(out));
       g.getWorldQuaternion(q2).invert();
       if (showBar) {
         const bb = barbell.current;
@@ -216,9 +229,9 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
           dbL.current.scale.setScalar(1.3);
         } else {
           dbL.current.position.copy(hl);
-          B.foreL.getWorldQuaternion(q1); dbL.current.quaternion.copy(q2).multiply(q1);
+          foreQ('L', q1); dbL.current.quaternion.copy(q2).multiply(q1);
           dbR.current.position.copy(hr);
-          B.foreR.getWorldQuaternion(q1); dbR.current.quaternion.copy(q2).multiply(q1);
+          foreQ('R', q1); dbR.current.quaternion.copy(q2).multiply(q1);
           const s = 0.85 + Math.min(0.6, (a.weight ?? 20) / 120);
           dbL.current.scale.setScalar(s); dbR.current.scale.setScalar(s);
         }
@@ -229,7 +242,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       }
       if (bottle.current.visible) {
         bottle.current.position.copy(hr);
-        B.foreR.getWorldQuaternion(q1); bottle.current.quaternion.copy(q2).multiply(q1);
+        foreQ('R', q1); bottle.current.quaternion.copy(q2).multiply(q1);
       }
       if (puff.current.visible) {
         // a little cloud of chalk dust between the hands (V5); a still haze in reduced motion
@@ -246,18 +259,18 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       }
       if (phone.current.visible) {
         phone.current.position.copy(hr).add(v3.set(0, 0.06, 0.06));
-        B.foreR.getWorldQuaternion(q1); phone.current.quaternion.copy(q2).multiply(q1);
+        foreQ('R', q1); phone.current.quaternion.copy(q2).multiply(q1);
       }
     }
 
     // --- aura: each colour moves differently; a golden PR overrides the colour ---
     const auraT = a.aura ?? 0;
     aura.current.visible = auraT > 0;
-    auraLight.current.intensity = auraT > 0 ? 5 + Math.sin(c.t * 18) * 2.5 : 0;
+    if (auraT > 0) claimAuraLight(v3.set(0, 1.1, 0).applyMatrix4(g.matrixWorld), a.auraGold ? '#FFD700' : pickedHex, 5 + Math.sin(c.t * 18) * 2.5);
     if (auraT > 0) {
       const kind = a.auraGold ? 'gold' : auraId;
       const hex = a.auraGold ? '#FFD700' : pickedHex;
-      auraParticleMat.current.color.set(hex); auraShellMat.current.color.set(hex); auraLight.current.color.set(hex);
+      auraParticleMat.current.color.set(hex); auraShellMat.current.color.set(hex);
       const im = auraParticles.current;
       const tt = reducedMotion ? 0.5 : c.t;
       for (let i = 0; i < AURA_N; i++) {
@@ -313,19 +326,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
       aura.current.scale.set(s, 1, s);
     }
 
-    // --- speech bubble ---
-    const el = bubbleEl.current;
-    if (el) {
-      const text = a.bubble?.text ?? '';
-      if (el.textContent !== text) el.textContent = text;
-      el.style.display = text ? 'block' : 'none';
-    }
-    const bn = bannerEl.current;
-    if (bn) {
-      const text = a.banner?.text ?? '';
-      if (bn.textContent !== text) bn.textContent = text;
-      bn.style.display = text ? 'block' : 'none';
-    }
+    // --- speech bubble and title banner (drawn by the shared BubbleLayer) ---
+    if (speech.current) { speech.current.bubble = a.bubble; speech.current.banner = a.banner ?? null; }
   });
 
   const s = SCALE * look.height;
@@ -342,9 +344,13 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
         <mesh rotation-x={-Math.PI / 2} position-y={0.02}><ringGeometry args={[0.42, 0.52, 28]} /><meshBasicMaterial color={pickedHex} transparent opacity={0.9} /></mesh>
       )}
       <group ref={body} scale={s}>
-        <primitive object={rig.bones[0]} />
-        <primitive object={rig.gym} />
-        <primitive object={rig.street} />
+        {pr ? <primitive object={pr.object} /> : (
+          <>
+            <primitive object={rig.bones[0]} />
+            <primitive object={rig.gym} />
+            <primitive object={rig.street} />
+          </>
+        )}
       </group>
       <group ref={props}>
         <group ref={barbell} visible={false}>
@@ -364,13 +370,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
         </instancedMesh>
         <mesh position-y={1}><cylinderGeometry args={[0.65, 0.5, 2.1, 24, 1, true]} /><meshBasicMaterial ref={auraShellMat} color={pickedHex} transparent opacity={0.16} side={THREE.DoubleSide} depthWrite={false} /></mesh>
       </group>
-      <pointLight ref={auraLight} position={[0, 1.1, 0]} color={pickedHex} intensity={0} distance={5} />
-      <Html position={[0, 2.2 * look.height, 0]} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
-        <div className="above">
-          <div ref={bannerEl} className="title-banner" style={{ display: 'none' }} />
-          <div ref={bubbleEl} className="bubble" style={{ display: 'none' }} />
-        </div>
-      </Html>
+      <group ref={anchor} position={[0, (pr ? 2.45 : 2.2) * look.height, 0]} />
     </group>
   );
 }

@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import type { CharacterLook } from './character/look';
 import { boneInverses, createBones, rigDims, BONES } from './character/rig';
 import { bodyMaterial, geometriesFor } from './Avatar';
+import { PackRig, packData } from './character/pack';
+import { restPose } from './character/poses';
 
 const SIZE = 160;
 
@@ -43,7 +45,7 @@ export function portraitFor(look: CharacterLook): Portrait {
 }
 
 /** Call once per frame from inside the Canvas. */
-export function bakePending(gl: THREE.WebGLRenderer, max = 2): void {
+export function bakePending(gl: THREE.WebGLRenderer, max = 1): void {
   for (let n = 0; n < max && queue.length; n++) {
     const p = portraits.get(queue.shift()!);
     if (!p || p.baked) continue;
@@ -51,8 +53,34 @@ export function bakePending(gl: THREE.WebGLRenderer, max = 2): void {
   }
 }
 
+function bakePack(look: CharacterLook): { group: THREE.Group; dispose: () => void } {
+  const rig = new PackRig(look);
+  const pose = restPose();
+  pose.head = [0.05, 0.12, 0.04];
+  pose.armL = [0, 0, -0.15]; pose.armR = [0, 0, 0.15];
+  rig.apply(pose, { anim: 'idle', t: 0, variant: 0, reduced: true }, 1);
+  const group = new THREE.Group();
+  group.add(rig.object);
+  // frame the pack's bigger head the way the studio frames the built-in figure's (head centre ~1.06)
+  const head = PackRig.headCentre(new THREE.Vector3());
+  group.position.y = 1.06 - head.y;
+  group.scale.setScalar(1);
+  return { group, dispose: () => rig.dispose() };
+}
+
 function bake(gl: THREE.WebGLRenderer, p: Portrait): void {
   const { scene, cam } = getStudio();
+  if (packData()) {
+    const { group, dispose } = bakePack(p.look);
+    cam.position.set(0.32, 1.12, 1.95); cam.lookAt(0, 1.04, 0);
+    scene.add(group);
+    group.updateMatrixWorld(true);
+    render(gl, p, scene, cam);
+    scene.remove(group);
+    dispose();
+    return;
+  }
+  cam.position.set(0.28, 1.16, 1.5); cam.lookAt(0, 1.06, 0);
   const dims = rigDims(p.look);
   const bones = createBones(dims);
   const skeleton = new THREE.Skeleton(bones, boneInverses(dims));
@@ -68,7 +96,12 @@ function bake(gl: THREE.WebGLRenderer, p: Portrait): void {
   group.add(bones[0], mesh);
   scene.add(group);
   group.updateMatrixWorld(true);
+  render(gl, p, scene, cam);
+  scene.remove(group);
+  skeleton.dispose();
+}
 
+function render(gl: THREE.WebGLRenderer, p: Portrait, scene: THREE.Scene, cam: THREE.Camera): void {
   const prev = gl.getRenderTarget();
   const prevTone = gl.toneMapping;
   gl.setRenderTarget(p.rt);
@@ -80,8 +113,6 @@ function bake(gl: THREE.WebGLRenderer, p: Portrait): void {
   gl.readRenderTargetPixels(p.rt, 0, 0, SIZE, SIZE, px);
   gl.setRenderTarget(prev);
   gl.toneMapping = prevTone;
-  scene.remove(group);
-  skeleton.dispose();
 
   const canvas = document.createElement('canvas');
   canvas.width = SIZE; canvas.height = SIZE;

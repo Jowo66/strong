@@ -2,10 +2,12 @@
 
 ## Art, animation and sound
 
-Everything you see and hear in Mini Gym is original and made in code for this project:
+- **Characters**: [Ultimate Animated Character Pack](https://quaternius.com/packs/ultimatedanimatedcharacter.html) (Nov 2019) by **Quaternius**, CC0 1.0 (public domain). Bodies, faces, hair, clothing and the walk / run / carry / victory animations come from the pack, converted and recoloured by `scripts/build-characters.py` into `public/characters/`. Support the author: https://www.patreon.com/quaternius
+- **Equipment, room and props**: built from primitives in `src/scene/` (no downloaded models). Glasses, headphones, afros and buns on the characters are code-built too.
+- **Exercise animation**: procedural poses in `src/scene/character/poses.ts`, retargeted onto the pack's skeleton.
 
-- **Characters, equipment, room and props**: built from primitives in `src/scene/` (no downloaded models).
-- **Animation**: procedural poses in `src/scene/character/poses.ts`.
+Everything else you see and hear is original and made in code for this project:
+
 - **Floor textures, posters, signs and the whiteboard**: drawn on canvas in `src/scene/labels.ts` (original artwork).
 - **Icons**: original SVG line icons in `src/ui/Icon.tsx`.
 - **Sound effects, ambience and Gym Radio music**: synthesised live with Web Audio in `src/audio/sound.ts` (no recordings).

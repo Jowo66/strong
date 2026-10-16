@@ -15,6 +15,7 @@ export interface Pose {
   mouth: number;  // 0 closed … 1 wide open
   brows: number;  // -1 frown/focused … 0 neutral … 1 raised/surprised
   blink: number;  // 1 open … 0.1 shut
+  support: number; // 0 = standing on the feet … 1 = body resting on equipment or the floor (seat, bench, bar, mat)
 }
 export type Prop = 'none' | 'barbell' | 'ezbar' | 'dumbbells' | 'dumbbell' | 'phone' | 'bottle' | 'chalk' | 'plank';
 
@@ -38,7 +39,7 @@ export function restPose(): Pose {
     hips: [0, HIP_Y, 0], hipsRot: zero(), spine: zero(), head: zero(),
     armL: [0, 0, -0.08], foreL: [-0.15, 0, 0], armR: [0, 0, 0.08], foreR: [-0.15, 0, 0],
     thighL: zero(), shinL: zero(), thighR: zero(), shinR: zero(),
-    mouth: 0, brows: 0, blink: 1,
+    mouth: 0, brows: 0, blink: 1, support: 0,
   };
 }
 
@@ -58,6 +59,7 @@ function legsSquat(p: Pose, depth: number): void {
 
 function seated(p: Pose, seatY: number): void {
   p.hips[1] = seatY;
+  p.support = 1;
   p.thighL = [-PI / 2, 0, -0.1]; p.thighR = [-PI / 2, 0, 0.1];
   p.shinL = [PI / 2 - 0.1, 0, 0]; p.shinR = [PI / 2 - 0.1, 0, 0];
 }
@@ -66,6 +68,7 @@ function seated(p: Pose, seatY: number): void {
 function lyingOnBench(p: Pose, padY: number, incline = 0): void {
   p.hipsRot = [-PI / 2 + incline, PI, 0];
   p.hips = [0, padY + 0.12, -0.32 + incline * 0.15];
+  p.support = 1;
   // feet planted: thighs along the bench then shins down to the floor
   p.thighL = [-0.25 - incline * 0.5, 0, -0.25]; p.thighR = [-0.25 - incline * 0.5, 0, 0.25];
   p.shinL = [PI / 2 + 0.1, 0, 0]; p.shinR = [PI / 2 + 0.1, 0, 0];
@@ -228,6 +231,7 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
     case 'pull_up': case 'hanging_leg_raise': {
       const up = ex === 'pull_up' ? s : 0;
       p.hips = [0, 1.02 + up * 0.24, 0];
+      p.support = 1;
       p.armL = [-PI + 0.05, 0, -0.3 - up * 0.55]; p.armR = [-PI + 0.05, 0, 0.3 + up * 0.55];
       p.foreL = [-up * 1.9, 0, 0]; p.foreR = [-up * 1.9, 0, 0];
       if (ex === 'hanging_leg_raise') { p.thighL = [-1.45 * s, 0, -0.05]; p.thighR = [-1.45 * s, 0, 0.05]; }
@@ -246,6 +250,7 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
     case 'bike_intervals': {
       const w = t * 9;
       p.hips = [0, 0.78, -0.22];
+      p.support = 1;
       p.spine = [0.55, 0, 0];
       p.thighL = [-1.15 + 0.38 * Math.sin(w), 0, -0.05]; p.thighR = [-1.15 + 0.38 * Math.sin(w + PI), 0, 0.05];
       p.shinL = [1.05 + 0.5 * Math.sin(w + 1.2), 0, 0]; p.shinR = [1.05 + 0.5 * Math.sin(w + 1.2 + PI), 0, 0];
@@ -256,6 +261,7 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
     case 'rowing': {
       const k = rep(t, 2.2) * amp; // 0 = catch, 1 = finish
       p.hips = [0, 0.2, lerp(0.05, -0.38, k)];
+      p.support = 1;
       p.thighL = [lerp(-2.2, -1.5, k), 0, -0.08]; p.thighR = [lerp(-2.2, -1.5, k), 0, 0.08];
       p.shinL = [lerp(2.1, 0.08, k), 0, 0]; p.shinR = [lerp(2.1, 0.08, k), 0, 0];
       p.spine = [lerp(0.4, -0.3, k), 0, 0];
@@ -267,6 +273,7 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
       const push = ex === 'push_up' ? s : 0;
       p.hipsRot = [PI / 2 - 0.12 - push * 0.08, 0, 0];
       p.hips = [0, ex === 'push_up' ? 0.22 + push * 0.13 : 0.2, -0.25];
+      p.support = 1;
       if (ex === 'push_up') {
         p.armL = [-PI / 2 + 0.1, 0, -0.35]; p.armR = [-PI / 2 + 0.1, 0, 0.35];
         p.foreL = [-(1 - push) * 1.3, 0, 0]; p.foreR = [-(1 - push) * 1.3, 0, 0];
@@ -280,6 +287,7 @@ function exercisePose(p: Pose, ex: string, t: number, reduced: boolean): void {
     case 'stretch': default: {
       // seated forward fold on the mat, reaching for the toes
       p.hips = [0, 0.13, -0.25];
+      p.support = 1;
       p.thighL = [-PI / 2, 0, -0.08]; p.thighR = [-PI / 2, 0, 0.08];
       p.spine = [0.45 + rep(t, 4) * 0.35 * amp, 0, 0];
       p.armL = [-1.35, 0, -0.1]; p.armR = [-1.35, 0, 0.1];

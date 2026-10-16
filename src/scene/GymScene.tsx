@@ -15,6 +15,7 @@ import { labelTexture } from './labels';
 import { bakePending } from './portraits';
 import { useUi } from '../store/ui';
 import { setListener } from '../audio/sound';
+import { AuraLight, BubbleLayer } from './overlay';
 
 const Effects = lazy(() => import('./Effects'));
 
@@ -226,6 +227,16 @@ function FollowCam() {
   return null;
 }
 
+/** Moving members are the only shadow casters that change; re-rendering the shadow map every other frame halves
+ *  that pass at no visible cost at diorama scale. */
+function ShadowThrottle() {
+  const gl = useThree((s) => s.gl);
+  const n = useRef(0);
+  useEffect(() => { gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = true; return () => { gl.shadowMap.autoUpdate = true; }; }, [gl]);
+  useFrame(() => { if ((n.current++ & 1) === 0) gl.shadowMap.needsUpdate = true; });
+  return null;
+}
+
 /** Bakes member portraits (Hall of Fame wall, profile cards) a couple per frame. */
 function PortraitBaker() {
   useFrame((state) => bakePending(state.gl));
@@ -238,14 +249,20 @@ export function GymScene({ engine }: { engine: SimEngine }) {
   const detail = useSettings((s) => s.detail);
   const high = detail === 'high';
   // adaptive pixel ratio: start at the screen's (max 2), step down if frames drop, back up when there's headroom
-  const maxDpr = high ? Math.min(2, window.devicePixelRatio || 1) : 1;
+  const maxDpr = high ? Math.min(1.5, window.devicePixelRatio || 1) : 1;
   const [dpr, setDpr] = useState(maxDpr);
   useEffect(() => { setDpr(maxDpr); }, [maxDpr]);
+  // when frames drop, give up ambient occlusion first (the most expensive pass), then pixel ratio
+  const [aoSuspended, setAoSuspended] = useState(false);
+  // post-processing renders through its own anti-aliased targets, so the canvas's own MSAA would be wasted
+  const [canvasAA] = useState(() => !(tiltShift || high));
   const shadowSize = high ? 2048 : 1024;
   return (
-    <Canvas shadows dpr={dpr} camera={{ position: [18, 26, 33], fov: 30, near: 1, far: 200 }} gl={{ antialias: true }}>
+    <Canvas shadows dpr={dpr} camera={{ position: [18, 26, 33], fov: 30, near: 1, far: 200 }} gl={{ antialias: canvasAA, powerPreference: 'high-performance' }}>
       <EngineContext.Provider value={engine}>
-        <PerformanceMonitor onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))} onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))} flipflops={4} />
+        <PerformanceMonitor flipflops={4}
+          onDecline={() => { if (high && !aoSuspended) setAoSuspended(true); else setDpr((d) => Math.max(0.75, d - 0.25)); }}
+          onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))} />
         <color attach="background" args={[highContrast ? '#FFFFFF' : '#F6EFE4']} />
         <fog attach="fog" args={[highContrast ? '#FFFFFF' : '#F6EFE4', 70, 160]} />
         {/* warm key light with soft shadows, cool fill from the left, warm bounce from the floor */}
@@ -263,11 +280,14 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Crew />
         <Podium />
         <PortraitBaker />
+        <ShadowThrottle />
+        <AuraLight />
+        <BubbleLayer />
         <FollowCam />
         <AudioListener />
         <OrbitControls makeDefault target={[0, 0, -0.5]} enablePan={false} minDistance={14} maxDistance={120}
           minPolarAngle={0.55} maxPolarAngle={1.1} minAzimuthAngle={-0.6} maxAzimuthAngle={0.9} enableDamping />
-        {(tiltShift || high) && <Suspense fallback={null}><Effects high={high} tiltShift={tiltShift} /></Suspense>}
+        {(tiltShift || high) && <Suspense fallback={null}><Effects high={high} ao={high && !aoSuspended} tiltShift={tiltShift} /></Suspense>}
       </EngineContext.Provider>
     </Canvas>
   );

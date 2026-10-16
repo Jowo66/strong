@@ -2,6 +2,7 @@
 // from the "You" panel. Changing level only changes starting weights for a player who hasn't trained yet.
 import { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { packData } from '../scene/character/pack';
 import { useEngine } from '../engineContext';
 import { EngineContext } from '../engineContext';
 import { useUi } from '../store/ui';
@@ -64,7 +65,7 @@ export function CharacterCreator() {
     <section className="panel creator" aria-label="Your character">
       <header><h2><Icon name="user" size={20} /> Your character</h2><button onClick={() => { eng.save.playerCreated = true; close('creator'); }} aria-label="Close"><Icon name="close" /></button></header>
       <div className="preview" onClick={() => setPoseIdx((i) => (i + 1) % POSES.length)} title="Click to change pose">
-        <Canvas camera={{ position: [0.3, 1.45, 3.1], fov: 30 }} dpr={[1, 2]} onCreated={({ camera }) => camera.lookAt(0, 0.95, 0)}>
+        <Canvas camera={packData() ? { position: [0.35, 1.5, 4.3], fov: 30 } : { position: [0.3, 1.45, 3.1], fov: 30 }} dpr={[1, 2]} onCreated={({ camera }) => camera.lookAt(0, packData() ? 1.12 : 0.95, 0)}>
           <EngineContext.Provider value={eng}>
             <color attach="background" args={['#FFF4DE']} />
             <hemisphereLight args={['#FFF8EE', '#B9A58C', 1.3]} />

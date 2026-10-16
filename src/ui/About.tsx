@@ -10,8 +10,8 @@ export function About() {
       </ul>
       <h3>About &amp; credits</h3>
       <p className="muted small">
-        Mini Gym {__APP_VERSION__} ({__APP_COMMIT__}). Characters, equipment, animation, artwork, icons, sound effects and Gym Radio are
-        original and made in code. Font: Nunito (SIL Open Font License). Built with three.js, React Three Fiber, drei, postprocessing,
+        Mini Gym {__APP_VERSION__} ({__APP_COMMIT__}). Characters from the Ultimate Animated Character Pack by Quaternius (CC0).
+        Equipment, exercise animation, artwork, icons, sound effects and Gym Radio are original and made in code. Font: Nunito (SIL Open Font License). Built with three.js, React Three Fiber, drei, postprocessing,
         N8AO, zustand and idb-keyval. Spotify is a trademark of Spotify AB; Mini Gym isn't affiliated with Spotify.{' '}
         <a href={`${import.meta.env.BASE_URL}CREDITS.md`} target="_blank" rel="noreferrer">Full credits</a>
       </p>

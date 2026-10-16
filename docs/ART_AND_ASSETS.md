@@ -1,6 +1,6 @@
 # Mini Gym — Art & Asset List
 
-Everything visible in the gym today is **code-built**: characters, equipment and the room are made from primitives in `src/scene/` (see §0). This list covers what a real art pass would replace, without changing the simulation.
+**Characters now come from the Quaternius Ultimate Animated Character Pack (CC0)** — see "Character pack" below. Equipment and the room are still **code-built** from primitives in `src/scene/` (see §0). This list covers what a real art pass would replace, without changing the simulation.
 
 ## 0. Current code-built art (M2)
 
@@ -35,7 +35,42 @@ To check characters up close, open the app with `?lineup`.
 
 ---
 
-## 2. Characters
+## Character pack (shipped)
+
+Source: *Ultimate Animated Character Pack* (Nov 2019) by Quaternius, CC0 — 52 characters, one shared 23-bone skeleton, 17 animations, flat colour materials, 99 MB as glTF.
+
+**Pipeline** — `scripts/build-characters.py` (needs `pip install fast-simplification numpy`):
+
+```bash
+python3 -I scripts/build-characters.py "<pack>/glTF" public/characters
+```
+
+It writes `characters.json` (skeleton, part catalogue, clip index) and `characters.bin` (≈415 KB, ≈175 KB gzipped):
+
+- Exports single-material parts (e.g. `Casual_Male/Shirt`) so looks can mix hair, tops and bottoms from different characters over the full `BaseCharacter` body. Identical meshes are de-duplicated.
+- Welds vertices and drops normals (rendered flat-shaded), simplifies hair from 4–6k to ~1.1k triangles, quantises positions to int16.
+- For every garment, ray-casts which body vertices it covers, so the game hides skin under clothes (no z-fighting).
+- Keeps 10 clips (Idle, Walk, Run, Victory, PickUp, Punch, Jump, Walk_Carry, Defeat, SitDown) resampled at 30 fps.
+
+**In the game** — `src/scene/character/pack.ts`:
+
+| Look option | How it's made |
+|---|---|
+| Tops: tee / tank / longsleeve / sports top | Casual / Casual3 shirts; long sleeves paint the arm skin; a sports top is the tank without the triangles that follow the belly bones |
+| Bottoms: shorts / leggings / joggers | Casual / Casual3 / Casual2 trousers |
+| Street clothes | Casual2 tee with long sleeves + jeans, in the member's street colours |
+| Hair: short, spiky, curly, long, ponytail | Pack hair meshes (several variants each, picked per member) |
+| Hair: buzz / bun / afro / bald | Buzz is painted on the scalp; bun and afro are code-built shapes on the head bone |
+| Beard / moustache / stubble | Viking beard, Chef and OldClassy moustaches; stubble is painted |
+| Glasses, headphones | Code-built, on the head bone |
+| Crew | Worker shirt, hi-vis vest, trousers and hard hat |
+| Shoes | Painted on the feet |
+
+Animation: every frame the procedural pose (`poses.ts`) is **retargeted** onto the pack skeleton (each limb's rotation relative to a "standing, arms down" reference), and the pack's own clips cross-fade in for walking, carrying, treadmill running/walking and celebrating. Poses where the body rests on something (`Pose.support`) keep their absolute seat height; standing poses scale with the pack's shorter legs. If the pack fails to load, the old code-built figures (`rig.ts`) are used.
+
+To check characters up close, open the app with `?lineup`.
+
+## 2. Characters (original art-pass notes)
 
 | ID | Asset | Notes | Priority |
 |---|---|---|---|

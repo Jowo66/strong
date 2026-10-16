@@ -22,6 +22,7 @@ import { useSettings } from './store/settings';
 import { clearSave, storageBackend, useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
 import { handleRedirect } from './spotify/auth';
+import { loadPack } from './scene/character/pack';
 import { applySettings, audioState, playSfx, radioBeat, setCrowd, unlockAudio, type Sfx } from './audio/sound';
 import { useMusic, musicPlaying } from './store/music';
 import { onNowPlaying } from './spotify/player';
@@ -83,7 +84,9 @@ function Gym() {
     const fontTimeout = new Promise((r) => setTimeout(r, 2000));
     const fresh = takeNewGymFlag();
     const hydrated = Promise.race([waitForHydration().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 12000))]);
-    void Promise.all([hydrated, Promise.race([fonts, fontTimeout])]).then(([ok]) => {
+    // the character pack (≈175 KB); if it's slow or missing the gym opens with the built-in figures
+    const characters = Promise.race([loadPack(), new Promise((r) => setTimeout(r, 8000))]);
+    void Promise.all([hydrated, Promise.race([fonts, fontTimeout]), characters]).then(([ok]) => {
       if (!ok && !fresh) { setProblem('the save could not be read from this browser'); return; }
       const raw = fresh ? null : useSaveStore.getState().save;
       let eng: SimEngine;

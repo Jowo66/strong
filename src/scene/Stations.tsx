@@ -2,7 +2,7 @@
 // every station of that type. Live parts read the Station every frame: the rack bar and its plates (loaded while the
 // owner rests, gone while they lift it, left loaded by Rerack Avoiders), treadmill belts, bike flywheels, and the
 // construction kit while the crew builds.
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -266,6 +266,8 @@ function layoutPlates(im: THREE.InstancedMesh, weight: number): void {
   if (im.instanceColor) im.instanceColor.needsUpdate = true;
 }
 
+const TAG_SECONDS = 4;
+
 export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; type: StationType; temporary: boolean; variant?: number }) {
   const eng = useEngine();
   const root = useRef<THREE.Group>(null!);
@@ -277,6 +279,9 @@ export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; 
   const flywheel = useRef<THREE.Mesh>(null!);
   const lastLoad = useRef(-1);
   const grow = useRef(temporary ? 0 : 1);
+  // the yellow name tag is only up while the crew builds and for a moment after ("Bench #7 is open!")
+  const [tag, setTag] = useState(temporary);
+  const builtAt = useRef<number | null>(null);
 
   const body = useMemo(() => bodyGeometry(type, variant), [type, variant]);
   const beltMat = useMemo(() => (type === 'treadmill' ? new THREE.MeshStandardMaterial({ map: beltTexture(), roughness: 0.9 }) : null), [type]);
@@ -293,6 +298,13 @@ export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; 
     grow.current += (target - grow.current) * Math.min(1, dt * 3);
     model.current.scale.set(1, grow.current, 1);
     if (kitRef.current) kitRef.current.visible = s.building;
+    if (temporary) {
+      const now = performance.now();
+      if (s.building) builtAt.current = null;
+      else if (builtAt.current === null) builtAt.current = now;
+      const show = s.building || now - (builtAt.current ?? now) < TAG_SECONDS * 1000;
+      if (show !== tag) setTag(show);
+    }
 
     const occ = s.occupant ? eng.agents.get(s.occupant) : undefined;
     const ex = occ ? (occ.rackCurl ? 'rack_curl' : occ.routine[occ.index]?.exerciseId) : undefined;
@@ -341,9 +353,11 @@ export function StationMesh({ id, type, temporary, variant = 0 }: { id: string; 
         <>
           <mesh geometry={hazardGeometry()} material={kitMaterial} receiveShadow />
           <mesh ref={kitRef} geometry={constructionGeometry()} material={kitMaterial} castShadow visible={false} />
-          <Html position={[0, 2.1, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
-            <div className="station-tag">{eng.stations.find((s) => s.id === id)?.label ?? ''}</div>
-          </Html>
+          {tag && (
+            <Html position={[0, 2.1, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+              <div className="station-tag">{eng.stations.find((s) => s.id === id)?.label ?? ''}</div>
+            </Html>
+          )}
         </>
       )}
     </group>
