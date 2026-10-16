@@ -19,7 +19,7 @@ import { SceneNav, useShortcuts } from './ui/SceneNav';
 import { ErrorBoundary, RecoveryScreen } from './ui/Recovery';
 import { migrateSave } from './store/migrate';
 import { useSettings } from './store/settings';
-import { useSaveStore, waitForHydration } from './store/save';
+import { clearSave, storageBackend, useSaveStore, waitForHydration } from './store/save';
 import { useUi } from './store/ui';
 import { handleRedirect } from './spotify/auth';
 import { applySettings, audioState, playSfx, radioBeat, setCrowd, unlockAudio, type Sfx } from './audio/sound';
@@ -49,10 +49,19 @@ function boot(existing: SaveData | null): SimEngine {
   return eng;
 }
 
-/** Wipe the save and reload with a brand-new gym (only ever on the player's say-so). */
+/** Wipe the save and reload with a brand-new gym (only ever on the player's say-so).
+ *  The ?newgym flag makes the next load ignore whatever is stored, so this works even when storage is broken. */
 function startNewGym(): void {
-  useSaveStore.getState().setSave(null);
-  setTimeout(() => location.reload(), 300);
+  const go = () => { const u = new URL(location.href); u.searchParams.set('newgym', '1'); location.replace(u.toString()); };
+  void Promise.race([clearSave(), new Promise((r) => setTimeout(r, 1500))]).finally(go);
+}
+
+function takeNewGymFlag(): boolean {
+  const u = new URL(location.href);
+  if (!u.searchParams.has('newgym')) return false;
+  u.searchParams.delete('newgym');
+  history.replaceState(null, '', u.pathname + u.search + u.hash);
+  return true;
 }
 
 export default function App() {
@@ -72,10 +81,11 @@ function Gym() {
     // Canvas textures (floor labels, signs) need the self-hosted font before they are drawn.
     const fonts = document.fonts?.load(`900 32px "Nunito Variable"`).catch(() => undefined) ?? Promise.resolve();
     const fontTimeout = new Promise((r) => setTimeout(r, 2000));
-    const hydrated = Promise.race([waitForHydration().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))]);
+    const fresh = takeNewGymFlag();
+    const hydrated = Promise.race([waitForHydration().then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), 12000))]);
     void Promise.all([hydrated, Promise.race([fonts, fontTimeout])]).then(([ok]) => {
-      if (!ok) { setProblem('the save could not be read from this browser'); return; }
-      const raw = useSaveStore.getState().save;
+      if (!ok && !fresh) { setProblem('the save could not be read from this browser'); return; }
+      const raw = fresh ? null : useSaveStore.getState().save;
       let eng: SimEngine;
       try {
         const m = raw ? migrateSave(raw) : null;
@@ -89,6 +99,7 @@ function Gym() {
         return;
       }
       setEngine(eng);
+      if (storageBackend() === 'memory') useUi.getState().showBanner("This browser won't let Mini Gym save (private window or in-app browser?). The gym works, but use Settings → Export to keep it.");
       // first visit: make your character
       if (!eng.save.playerCreated && !new URLSearchParams(location.search).has('lineup')) useUi.getState().openPanel('creator');
     });

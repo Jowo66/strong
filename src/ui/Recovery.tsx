@@ -4,7 +4,9 @@ import { Component, type ReactNode } from 'react';
 import { get } from 'idb-keyval';
 
 export async function downloadRawSave(): Promise<void> {
-  const raw = (await get<string>('mini-gym-save').catch(() => undefined)) ?? '';
+  const fromIdb = await Promise.race([get<string>('mini-gym-save').catch(() => undefined), new Promise<undefined>((r) => setTimeout(() => r(undefined), 3000))]);
+  let raw = fromIdb ?? '';
+  if (!raw) { try { raw = localStorage.getItem('mini-gym-save') ?? ''; } catch { /* blocked */ } }
   const blob = new Blob([raw || '{}'], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
