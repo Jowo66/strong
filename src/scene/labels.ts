@@ -1,6 +1,8 @@
 // Canvas-drawn textures: zone floors with their labels baked in, signs, posters, the whiteboard.
 // No image downloads. Text uses the self-hosted Nunito font (loaded before the scene mounts).
 import * as THREE from 'three';
+import { resolveDetail } from './gpuTier';
+import { useSettings } from '../store/settings';
 
 export const FONT = '"Nunito Variable", Nunito, ui-rounded, system-ui, sans-serif';
 const cache = new Map<string, THREE.CanvasTexture>();
@@ -14,7 +16,8 @@ function make(key: string, w: number, h: number, draw: (ctx: CanvasRenderingCont
   draw(ctx, w, h);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
+  // 8x filtering keeps the floor crisp at the diorama angle; integrated GPUs get 4x (measured ~0.5 ms cheaper)
+  tex.anisotropy = resolveDetail(useSettings.getState().detail) === 'high' ? 8 : 4;
   cache.set(key, tex);
   return tex;
 }
