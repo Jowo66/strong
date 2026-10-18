@@ -230,11 +230,11 @@ function FollowCam() {
 
 /** Moving members are the only shadow casters that change; re-rendering the shadow map every other frame halves
  *  that pass at no visible cost at diorama scale. */
-function ShadowThrottle() {
+function ShadowThrottle({ every }: { every: number }) {
   const gl = useThree((s) => s.gl);
   const n = useRef(0);
   useEffect(() => { gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = true; return () => { gl.shadowMap.autoUpdate = true; }; }, [gl]);
-  useFrame(() => { if ((n.current++ & 1) === 0) gl.shadowMap.needsUpdate = true; });
+  useFrame(() => { if (n.current++ % every === 0) gl.shadowMap.needsUpdate = true; });
   return null;
 }
 
@@ -300,7 +300,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
   const [canvasAA] = useState(() => !(tiltShift || high));
   const shadowSize = high ? 2048 : 1024;
   return (
-    <Canvas shadows dpr={dpr} camera={{ position: [18, 26, 33], fov: 30, near: 1, far: 200 }} gl={{ antialias: canvasAA, powerPreference: 'high-performance' }}>
+    <Canvas shadows={high ? 'soft' : 'percentage'} dpr={dpr} camera={{ position: [18, 26, 33], fov: 30, near: 1, far: 200 }} gl={{ antialias: canvasAA, powerPreference: 'high-performance' }}>
       <EngineContext.Provider value={engine}>
         <PerformanceMonitor flipflops={4}
           onDecline={() => { if (high && !aoSuspended) setAoSuspended(true); else setDpr((d) => Math.max(0.6, d - 0.2)); }}
@@ -322,7 +322,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Crew />
         <Podium />
         <PortraitBaker />
-        <ShadowThrottle />
+        <ShadowThrottle every={high ? 2 : 3} />
         {!high && <MatteMaterials />}
         <AuraLight />
         <BubbleLayer />
