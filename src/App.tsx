@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { content } from './sim/content';
 import { SimEngine, type EngineSettings } from './sim/engine';
 import type { SaveData } from './sim/types';
 import { EngineContext } from './engineContext';
 import { GymScene } from './scene/GymScene';
-import { Lineup } from './scene/Lineup';
 import { TopBar } from './ui/TopBar';
 import { Tooltip } from './ui/Tooltip';
 import { Feed, Banner } from './ui/Feed';
@@ -12,9 +11,6 @@ import { HallOfFame } from './ui/HallOfFame';
 import { SettingsPanel } from './ui/SettingsPanel';
 import { MusicWindow } from './ui/MusicWindow';
 import { ProfileCard } from './ui/ProfileCard';
-import { YearReview } from './ui/YearReview';
-import { PlayerPanel } from './ui/PlayerPanel';
-import { CharacterCreator } from './ui/CharacterCreator';
 import { SceneNav, useShortcuts } from './ui/SceneNav';
 import { ErrorBoundary, RecoveryScreen } from './ui/Recovery';
 import { migrateSave } from './store/migrate';
@@ -28,6 +24,12 @@ import { useMusic, musicPlaying } from './store/music';
 import { onNowPlaying } from './spotify/player';
 
 const SAVE_EVERY_MS = 15_000;
+
+// rarely-open panels (and the ?lineup debug view) load on demand
+const Lineup = lazy(() => import('./scene/Lineup').then((m) => ({ default: m.Lineup })));
+const YearReview = lazy(() => import('./ui/YearReview').then((m) => ({ default: m.YearReview })));
+const PlayerPanel = lazy(() => import('./ui/PlayerPanel').then((m) => ({ default: m.PlayerPanel })));
+const CharacterCreator = lazy(() => import('./ui/CharacterCreator').then((m) => ({ default: m.CharacterCreator })));
 
 function engineSettings(): EngineSettings {
   const s = useSettings.getState();
@@ -163,7 +165,7 @@ function Gym() {
 
   if (problem) return <RecoveryScreen problem={problem} onNewGym={startNewGym} />;
   if (!engine) return <div className="loading" role="status">Unlocking the gym…</div>;
-  if (new URLSearchParams(location.search).has('lineup')) return <Lineup engine={engine} />;
+  if (new URLSearchParams(location.search).has('lineup')) return <Suspense fallback={null}><Lineup engine={engine} /></Suspense>;
 
   return (
     <EngineContext.Provider value={engine}>
@@ -178,9 +180,11 @@ function Gym() {
         {panel === 'settings' && <SettingsPanel onImport={onImport} onSave={save} />}
         {panel === 'music' && <MusicWindow />}
         {panel === 'profile' && <ProfileCard />}
-        {panel === 'review' && <YearReview />}
-        {panel === 'player' && <PlayerPanel />}
-        {panel === 'creator' && <CharacterCreator />}
+        <Suspense fallback={null}>
+          {panel === 'review' && <YearReview />}
+          {panel === 'player' && <PlayerPanel />}
+          {panel === 'creator' && <CharacterCreator />}
+        </Suspense>
       </div>
     </EngineContext.Provider>
   );
