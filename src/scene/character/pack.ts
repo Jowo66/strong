@@ -36,10 +36,15 @@ interface Part {
 
 interface Clip { duration: number; frames: number; rot: Float32Array; rotBones: number[]; pos: Float32Array; posBones: number[] }
 
+/** Moves from the Universal Animation Library (scripts/build-moves.py), stored in procedural pose space. */
+interface MovesManifest { fps: number; bones: ProcBone[]; clips: Record<string, { duration: number; frames: number; offset: number }> }
+interface Move { duration: number; frames: number; data: Int16Array; bones: ProcBone[] }
+
 interface Pack {
   manifest: Manifest;
   parts: Record<string, Part>;
   clips: Record<string, Clip>;
+  moves: Record<string, Move>;
   skel: SkeletonInfo;
   head: { centre: THREE.Vector3; radius: number; top: number; eyeY: number; eyeX: number; front: number; chinY: number };
 }
@@ -57,13 +62,26 @@ export function loadPack(): Promise<Pack | null> {
     loading = Promise.all([
       fetch(`${base}characters/characters.json`).then((r) => { if (!r.ok) throw new Error(`characters.json ${r.status}`); return r.json() as Promise<Manifest>; }),
       fetch(`${base}characters/characters.bin`).then((r) => { if (!r.ok) throw new Error(`characters.bin ${r.status}`); return r.arrayBuffer(); }),
-    ]).then(([m, bin]) => (pack = decode(m, bin)))
+      loadMoves(base),
+    ]).then(([m, bin, moves]) => (pack = { ...decode(m, bin), moves }))
       .catch((e) => { console.warn('Mini Gym: character pack unavailable, using built-in figures.', e); return null; });
   }
   return loading;
 }
 
-function decode(m: Manifest, bin: ArrayBuffer): Pack {
+/** The extra moves are optional: without them members use their procedural poses. */
+function loadMoves(base: string): Promise<Record<string, Move>> {
+  return Promise.all([
+    fetch(`${base}characters/moves.json`).then((r) => { if (!r.ok) throw new Error(`moves.json ${r.status}`); return r.json() as Promise<MovesManifest>; }),
+    fetch(`${base}characters/moves.bin`).then((r) => { if (!r.ok) throw new Error(`moves.bin ${r.status}`); return r.arrayBuffer(); }),
+  ]).then(([m, bin]) => {
+    const per = m.bones.length * 4 + 3;
+    return Object.fromEntries(Object.entries(m.clips).map(([name, c]) =>
+      [name, { duration: c.duration, frames: c.frames, data: new Int16Array(bin, c.offset, c.frames * per), bones: m.bones }]));
+  }).catch((e) => { console.warn('Mini Gym: extra moves unavailable.', e); return {}; });
+}
+
+function decode(m: Manifest, bin: ArrayBuffer): Omit<Pack, 'moves'> {
   const parts: Record<string, Part> = {};
   const { min, scale } = m.quantize;
   for (const [id, p] of Object.entries(m.parts)) {
@@ -395,6 +413,8 @@ export class PackRig {
   private readonly local: THREE.Quaternion[];
   private readonly clipQ: THREE.Quaternion[];
   private readonly clipBody = new THREE.Vector3();
+  private readonly moveQ: Record<ProcBone, THREE.Quaternion>;
+  private readonly moveHips = new THREE.Vector3();
   private readonly ratio: number;
   private clipName: string | null = null;
   private clipT = 0;
@@ -427,17 +447,21 @@ export class PackRig {
     this.object.add(this.gym, this.street);
     this.procQ = Object.fromEntries((['hips', 'spine', 'head', 'armL', 'foreL', 'armR', 'foreR', 'thighL', 'shinL', 'thighR', 'shinR'] as ProcBone[])
       .map((b) => [b, new THREE.Quaternion()])) as Record<ProcBone, THREE.Quaternion>;
+    this.moveQ = Object.fromEntries(Object.keys(this.procQ).map((b) => [b, new THREE.Quaternion()])) as Record<ProcBone, THREE.Quaternion>;
     this.world = S.bindWorld.map((q) => q.clone());
     this.local = S.bindQuat.map((q) => q.clone());
     this.clipQ = S.bindQuat.map((q) => q.clone());
     this.ratio = (S.hipY * PACK_SCALE) / HIP_Y;
   }
 
-  /** Which pack clip (if any) plays for this moment, and how fast. */
+  /** Which pack clip or library move (if any) plays for this moment, and how fast. */
   private clipFor(ctx: PoseContext): [string, number] | null {
     if (ctx.reduced) return null;
     if (ctx.anim === 'walk') return ctx.carry ? ['Walk_Carry', 1.2] : ['Walk', 1.25];
-    if (ctx.anim === 'celebrate') return ['Victory', 1];
+    if (ctx.anim === 'celebrate') return ctx.variant > 0.6 && this.P.moves.dance ? ['dance', 1] : ['Victory', 1];
+    if ((ctx.anim === 'talk' || ctx.anim === 'phone' || ctx.anim === 'drink' || ctx.anim === 'build' || ctx.anim === 'nod') && this.P.moves[ctx.anim]) return [ctx.anim, 1];
+    // the arms-crossed idle habit (see idlePose)
+    if (ctx.anim === 'idle' && !ctx.resting && Math.floor(ctx.t / 7 + ctx.variant * 4) % 4 === 1 && this.P.moves.foldArms) return ['foldArms', 1];
     if ((ctx.anim === 'cardio' || ctx.anim === 'lift') && ctx.exercise === 'treadmill_run') return ['Run', 1];
     if ((ctx.anim === 'cardio' || ctx.anim === 'lift') && ctx.exercise === 'incline_walk') return ['Walk', 1.1];
     return null;
@@ -459,6 +483,25 @@ export class PackRig {
     Q.thighR.copy(Q.hips).multiply(qa.setFromEuler(eul.set(p.thighR[0], p.thighR[1], p.thighR[2], 'XYZ')));
     Q.shinR.copy(Q.thighR).multiply(qa.setFromEuler(eul.set(p.shinR[0], p.shinR[1], p.shinR[2], 'XYZ')));
 
+    // clip cross-fade state: a new clip only starts once the previous one has faded out
+    const want = this.clipFor(ctx);
+    if (want && want[0] !== this.clipName && (this.clipW < 0.05 || !this.clipName)) { this.clipName = want[0]; this.clipT = ctx.variant * 2; }
+    this.clipW += ((want ? 1 : 0) - this.clipW) * Math.min(1, dt * 7);
+    if (this.clipW <= 0.01 && !(want && want[0] === this.clipName)) this.clipName = null;
+    const cw = want && want[0] !== this.clipName ? this.clipW * 0.5 : this.clipW;
+    if (this.clipName && want && want[0] === this.clipName) this.clipT += dt * want[1];
+    const move = this.clipName ? this.P.moves[this.clipName] : undefined;
+
+    // library moves live in procedural space: blend them in before retargeting
+    let hx = p.hips[0], hy = p.hips[1], hz = p.hips[2], sup = p.support;
+    if (move) {
+      this.sampleMove(move, this.clipT);
+      for (const b of move.bones) Q[b].slerp(this.moveQ[b], cw);
+      const m = this.moveHips;
+      hx += (m.x * HIP_Y - hx) * cw; hy += (m.y * HIP_Y - hy) * cw; hz += (m.z * HIP_Y - hz) * cw;
+      sup *= 1 - cw;
+    }
+
     for (const i of S.order) {
       const par = S.parent[i];
       const w = this.world[i];
@@ -472,30 +515,19 @@ export class PackRig {
     }
 
     // hips: standing poses scale with the shorter legs; seated / lying poses keep the seat height
-    const sup = p.support;
     const k = this.ratio + (1 - this.ratio) * sup;
-    const bx = (p.hips[0] * k) / PACK_SCALE, bz = (p.hips[2] * k) / PACK_SCALE;
-    const by = (p.hips[1] * k) / PACK_SCALE;
+    const bx = (hx * k) / PACK_SCALE, bz = (hz * k) / PACK_SCALE;
+    const by = (hy * k) / PACK_SCALE;
     const body = this.bones[J.Body], bp = S.bindPos[J.Body];
     let px = bp.x + bx, py = bp.y + (by - S.hipY), pz = bp.z + bz;
 
-    // pack clip cross-fade
-    const want = this.clipFor(ctx);
-    const target = want ? 1 : 0;
-    if (want && want[0] !== this.clipName) {
-      if (this.clipW < 0.05 || !this.clipName) { this.clipName = want[0]; this.clipT = ctx.variant * 2; }
+    // pack clips are on the pack skeleton: cross-fade them after retargeting
+    const clip = this.clipName && !move ? this.P.clips[this.clipName] : undefined;
+    if (clip) {
+      this.sampleClip(clip, this.clipT);
+      for (let i = 0; i < S.n; i++) this.local[i].slerp(this.clipQ[i], cw);
+      px += (this.clipBody.x - px) * cw; py += (this.clipBody.y - py) * cw; pz += (this.clipBody.z - pz) * cw;
     }
-    this.clipW += (target - this.clipW) * Math.min(1, dt * 7);
-    if (this.clipName && this.clipW > 0.01) {
-      const clip = this.P.clips[this.clipName];
-      if (clip) {
-        if (want && want[0] === this.clipName) this.clipT += dt * want[1];
-        this.sampleClip(clip, this.clipT);
-        const w = want && want[0] !== this.clipName ? this.clipW * 0.5 : this.clipW;
-        for (let i = 0; i < S.n; i++) this.local[i].slerp(this.clipQ[i], w);
-        px += (this.clipBody.x - px) * w; py += (this.clipBody.y - py) * w; pz += (this.clipBody.z - pz) * w;
-      }
-    } else if (this.clipW <= 0.01) this.clipName = null;
 
     for (let i = 0; i < S.n; i++) this.bones[i].quaternion.copy(this.local[i]);
     body.position.set(px, py, pz);
@@ -526,14 +558,31 @@ export class PackRig {
     }
   }
 
+  private sampleMove(m: Move, t: number): void {
+    const f = ((t % m.duration) / m.duration) * (m.frames - 1);
+    const i0 = Math.floor(f), i1 = Math.min(m.frames - 1, i0 + 1), fr = f - i0;
+    const per = m.bones.length * 4 + 3, d = m.data;
+    m.bones.forEach((b, k) => {
+      const o0 = i0 * per + k * 4, o1 = i1 * per + k * 4;
+      qa.set(d[o0], d[o0 + 1], d[o0 + 2], d[o0 + 3]).normalize();
+      qb.set(d[o1], d[o1 + 1], d[o1 + 2], d[o1 + 3]).normalize();
+      this.moveQ[b].copy(qa).slerp(qb, fr);
+    });
+    const h0 = i0 * per + m.bones.length * 4, h1 = i1 * per + m.bones.length * 4;
+    this.moveHips.set(d[h0] + (d[h1] - d[h0]) * fr, d[h0 + 1] + (d[h1 + 1] - d[h0 + 1]) * fr, d[h0 + 2] + (d[h1 + 2] - d[h0 + 2]) * fr).multiplyScalar(1 / 16384);
+  }
+
   /** World position of a hand (procedural naming: 'L' is the x < 0 side). Matrices must be up to date. */
   hand(side: 'L' | 'R', out: THREE.Vector3): THREE.Vector3 {
     return out.copy(hand).applyMatrix4(this.bones[side === 'L' ? J.FistR : J.FistL].matrixWorld);
   }
 
-  /** World orientation of a forearm in the procedural convention (for props held in the hand). */
+  /** World orientation of a forearm in the procedural convention (for props held in the hand), as posed, clips included. */
   foreQuat(side: 'L' | 'R', out: THREE.Quaternion): THREE.Quaternion {
-    return this.object.getWorldQuaternion(out).multiply(this.procQ[side === 'L' ? 'foreL' : 'foreR']);
+    const i = side === 'L' ? J.LowerArmR : J.LowerArmL;
+    qa.identity();
+    for (let j: number = i; j >= 0; j = this.S.parent[j]) qa.premultiply(this.bones[j].quaternion);
+    return this.object.getWorldQuaternion(out).multiply(qa).multiply(qb.copy(this.S.ref[i]).invert());
   }
 
   /** Head centre in the rig object's parent space (rig units), for portraits. */

@@ -51,6 +51,12 @@ export class Kit {
     return this.add(new THREE.CylinderGeometry(r, r, len, seg), colour, m);
   }
 
+  /** A converted model (props.ts) that brings its own vertex colours; base at y, turned by ry, scaled per axis. */
+  model(geo: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, sx = 1, sy = sx, sz = sx): this {
+    this.parts.push(geo.clone().applyMatrix4(at(x, y, z, 0, ry, 0, sx, sy, sz)));
+    return this;
+  }
+
   /** Flat plane on the floor (or any height), facing up. */
   floor(w: number, d: number, colour: string, x: number, y: number, z: number): this {
     return this.add(new THREE.PlaneGeometry(w, d), colour, at(x, y, z, -Math.PI / 2, 0, 0));

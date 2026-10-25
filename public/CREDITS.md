@@ -3,7 +3,9 @@
 ## Art, animation and sound
 
 - **Characters**: [Ultimate Animated Character Pack](https://quaternius.com/packs/ultimatedanimatedcharacter.html) (Nov 2019) by **Quaternius**, CC0 1.0 (public domain). Bodies, faces, hair, clothing and the walk / run / carry / victory animations come from the pack, converted and recoloured by `scripts/build-characters.py` into `public/characters/`. Support the author: https://www.patreon.com/quaternius
-- **Equipment, room and props**: built from primitives in `src/scene/` (no downloaded models). Glasses, headphones, afros and buns on the characters are code-built too.
+- **Extra moves** (talking, phone calls, drinking, folded arms, kneeling to build, nodding, dancing): [Universal Animation Library](https://quaternius.com) 1 and 2 (Standard) by **Quaternius**, CC0 1.0, converted by `scripts/build-moves.py` into `public/characters/moves.*`.
+- **Plants, couch, coffee table, bar stools**: [Ultimate House Interior Pack](https://quaternius.com) (June 2020) by **Quaternius**, CC0 1.0. **Reception trophy**: [Ultimate RPG Items Pack](https://quaternius.com) (Aug 2019) by **Quaternius**, CC0 1.0. Converted by `scripts/build-props.py` (Blender) into `public/props/`.
+- **Equipment, the rest of the room and props**: built from primitives in `src/scene/`. Glasses, headphones, afros and buns on the characters are code-built too.
 - **Exercise animation**: procedural poses in `src/scene/character/poses.ts`, retargeted onto the pack's skeleton.
 
 Everything else you see and hear is original and made in code for this project:

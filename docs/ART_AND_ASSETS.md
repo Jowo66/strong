@@ -70,6 +70,32 @@ Animation: every frame the procedural pose (`poses.ts`) is **retargeted** onto t
 
 To check characters up close, open the app with `?lineup`.
 
+## Extra moves (shipped)
+
+Source: *Universal Animation Library* 1 and 2 (Standard) by Quaternius, CC0. Those clips are on a 65-bone mannequin, so `scripts/build-moves.py` (plain Python, no dependencies) stores them in **procedural pose space**: a world rotation per procedural bone measured from the "limbs hanging down" rest, plus hips height as a fraction of standing height. `pack.ts` blends them into the procedural pose *before* retargeting, so they work on every look.
+
+```bash
+python3 -I scripts/build-moves.py "<UAL1>/Unreal-Godot/UAL1_Standard.glb" "<UAL2>/Unreal-Godot/UAL2_Standard.glb" public/characters
+```
+
+| Move | Library clip | Plays for |
+|---|---|---|
+| talk | Idle_Talking_Loop | `talk` |
+| phone | Idle_TalkingPhone_Loop (mirrored to the phone hand) | `phone` |
+| drink | Consume | `drink` |
+| foldArms | Idle_FoldArms_Loop | the arms-crossed idle habit |
+| build | Fixing_Kneeling | crew `build` |
+| nod | Yes | `nod` |
+| dance | Dance_Loop | `celebrate`, for some members (the rest do the pack's Victory) |
+
+Reduced motion keeps the procedural poses. Props held in the hand follow the posed forearm, clips included.
+
+## Furniture (shipped)
+
+`scripts/build-props.py` runs in Blender (`blender -b --factory-startup -P scripts/build-props.py -- "<Design Assets>" public/props`): it imports Quaternius FBX models (CC0), decimates them to a triangle budget and bakes their flat material colours per vertex into `props.json` / `props.bin` (≈35 KB gzipped). `Room.tsx` merges them into its static geometry with `Kit.model`, inside the existing obstacle footprints; if the file is missing it draws the old primitive stand-ins.
+
+Shipped: five floor plants, a desk plant, a tiny plant on the shake bar, the couch, coffee table and bar stools (Ultimate House Interior Pack) and the reception trophy (Ultimate RPG Items Pack).
+
 ## 2. Characters (original art-pass notes)
 
 | ID | Asset | Notes | Priority |

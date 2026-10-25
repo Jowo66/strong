@@ -1,6 +1,8 @@
 // The diorama room (P1–P12): board, zone floors, walls, lockers (doors open while members change), reception,
 // social space, mirror, speakers, Hall of Fame wall, posters, whiteboard, windows, a clock that shows gym time.
 // Static props are merged into a few vertex-coloured meshes; only things that move or are clicked are separate.
+// Plants, the couch, coffee table, bar stools and the reception trophy are Quaternius models (props.ts) when they've
+// loaded, with primitive stand-ins otherwise.
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -9,6 +11,7 @@ import type { Vec2, ZoneId } from '../sim/types';
 import { floorTexture, labelTexture, plaqueTexture, posterTexture, whiteboardTexture, windowTexture, type FloorKind } from './labels';
 import { useUi } from '../store/ui';
 import { Kit, kitMaterial } from './kit';
+import { propsData, type PropModel } from './props';
 import { portraitFor } from './portraits';
 import { lookForNpc } from './character/look';
 import { useSettings } from '../store/settings';
@@ -32,6 +35,15 @@ function lockerDefs(spots: Vec2[]): LockerDef[] {
 
 function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: LockerDef[], hc: boolean): THREE.BufferGeometry {
   const k = new Kit();
+  const P = propsData();
+  /** Place a model scaled so its height (or, with byWidth, its width) matches `size`; false if it isn't loaded. */
+  const model = (id: string, x: number, y: number, z: number, ry: number, size: number, byWidth = false, squashY = 1): PropModel | null => {
+    const m = P?.[id];
+    if (!m) return null;
+    const s = size / (byWidth ? m.size[0] : m.size[1]);
+    k.model(m.geo, x, y, z, ry, s, s * squashY, s);
+    return m;
+  };
   const { x0, x1, z0, z1 } = L.bounds;
   const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
   const wall = hc ? WALL_HC : WALL;
@@ -88,36 +100,49 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   k.rbox(0.14, 0.05, 0.2, 0.02, '#1B1B1B', R.x + 0.5, 1.19, R.z + 0.3);
   k.box(0.08, 0.01, 0.08, '#06D6A0', R.x + 0.5, 1.22, R.z + 0.32);
   k.sphere(0.06, '#E9C46A', R.x + 0.2, 1.2, R.z + 0.25, 1, 0.6, 1);
-  k.cyl(0.11, 0.18, '#E76F51', R.x + 1.0, 1.25, R.z - 0.1, 0, 0, 0, 12, 0.08);
-  k.sphere(0.16, '#52B788', R.x + 1.0, 1.45, R.z - 0.1);
+  if (!model('plantLeafy', R.x + 1.0, 1.165, R.z - 0.1, 0.4, 0.5)) {
+    k.cyl(0.11, 0.18, '#E76F51', R.x + 1.0, 1.25, R.z - 0.1, 0, 0, 0, 12, 0.08);
+    k.sphere(0.16, '#52B788', R.x + 1.0, 1.45, R.z - 0.1);
+  }
+  model('trophy', R.x - 1.15, 1.165, R.z - 0.2, 0, 0.36); // the gym's own cup
   // welcome mat at the entrance
   k.rbox(1.8, 0.03, 1.0, 0.01, '#3D405B', L.checkInSpot.x, 0.015, 9.4);
   k.rbox(1.6, 0.032, 0.8, 0.01, '#E9C46A', L.checkInSpot.x, 0.016, 9.4);
 
   // social space: couch, coffee table, shake bar, rug
-  k.rbox(0.9, 0.45, 3.0, 0.1, '#E07A5F', -14.35, 0.23, 2.2);
-  k.rbox(0.3, 0.6, 3.0, 0.1, '#D06A4F', -14.7, 0.6, 2.2);
-  for (const z of [0.7, 3.7]) k.rbox(0.9, 0.55, 0.25, 0.08, '#D06A4F', -14.35, 0.38, z);
-  k.rbox(0.5, 0.15, 0.6, 0.06, '#F2CC8F', -14.3, 0.52, 1.5); k.rbox(0.5, 0.15, 0.6, 0.06, '#81B29A', -14.3, 0.52, 2.9);
-  k.cyl(0.45, 0.06, '#F2CC8F', -13.2, 0.42, 3.4, 0, 0, 0, 20); k.cyl(0.06, 0.4, '#8B5E34', -13.2, 0.2, 3.4, 0, 0, 0, 8);
-  k.rbox(0.18, 0.12, 0.13, 0.02, '#FFFFFF', -13.1, 0.51, 3.3); // a magazine pile
+  if (!model('couch', -14.41, 0, 2.2, Math.PI / 2, 3.1, true, 0.85)) { // faces into the room
+    k.rbox(0.9, 0.45, 3.0, 0.1, '#E07A5F', -14.35, 0.23, 2.2);
+    k.rbox(0.3, 0.6, 3.0, 0.1, '#D06A4F', -14.7, 0.6, 2.2);
+    for (const z of [0.7, 3.7]) k.rbox(0.9, 0.55, 0.25, 0.08, '#D06A4F', -14.35, 0.38, z);
+    k.rbox(0.5, 0.15, 0.6, 0.06, '#F2CC8F', -14.3, 0.52, 1.5); k.rbox(0.5, 0.15, 0.6, 0.06, '#81B29A', -14.3, 0.52, 2.9);
+  }
+  const table = model('coffeeTable', -13.2, 0, 3.4, 0, 0.9, true);
+  const tableTop = table ? table.size[1] * (0.9 / table.size[0]) : 0.45;
+  if (!table) { k.cyl(0.45, 0.06, '#F2CC8F', -13.2, 0.42, 3.4, 0, 0, 0, 20); k.cyl(0.06, 0.4, '#8B5E34', -13.2, 0.2, 3.4, 0, 0, 0, 8); }
+  k.rbox(0.18, 0.12, 0.13, 0.02, '#FFFFFF', -13.1, tableTop + 0.06, 3.3); // a magazine pile
   k.rbox(2.6, 1.0, 0.6, 0.05, '#264653', -12.6, 0.5, -1.0);
   k.rbox(2.7, 0.06, 0.7, 0.02, '#F7F1E6', -12.6, 1.03, -1.0);
   for (let i = 0; i < 4; i++) k.cyl(0.07, 0.24, ['#F4A261', '#E76F51', '#2A9D8F', '#8338EC'][i], -13.5 + i * 0.4, 1.18, -1.05, 0, 0, 0, 10, 0.06);
   k.cyl(0.12, 0.35, '#ADB5BD', -11.6, 1.24, -1.1, 0, 0, 0, 12); // blender
-  for (const x of [-13.3, -12.6, -11.9]) { k.cyl(0.18, 0.06, '#E76F51', x, 0.75, -0.45, 0, 0, 0, 14); k.cyl(0.04, 0.72, '#ADB5BD', x, 0.36, -0.45, 0, 0, 0, 6); }
+  for (const x of [-13.3, -12.6, -11.9]) {
+    if (!model('stool', x, 0, -0.45, 0, 0.8)) { k.cyl(0.18, 0.06, '#E76F51', x, 0.75, -0.45, 0, 0, 0, 14); k.cyl(0.04, 0.72, '#ADB5BD', x, 0.36, -0.45, 0, 0, 0, 6); }
+  }
+  model('plantTiny', -13.78, 1.06, -1.0, 0, 0.3);
   // water cooler
   const W = L.waterCooler;
   k.rbox(0.42, 1.0, 0.42, 0.05, '#F7F7F7', W.x, 0.5, W.z);
   k.box(0.1, 0.05, 0.05, '#4361EE', W.x - 0.08, 0.8, W.z + 0.22); k.box(0.1, 0.05, 0.05, '#E63946', W.x + 0.08, 0.8, W.z + 0.22);
-  // plants
-  for (const pl of L.obstacles.circles.filter((o) => o.name === 'plant')) {
+  // plants: a mix of pack plants, sized to each one's footprint
+  const PLANTS: [string, number, boolean][] = [['plantPalm', 2.8, true], ['plantMonstera', 2.8, true], ['plantSnake', 3.6, false], ['plantCactus', 3.6, false], ['plantSnake', 3.6, false]];
+  L.obstacles.circles.filter((o) => o.name === 'plant').forEach((pl, i) => {
     const x = pl.x, z = pl.z, s = pl.r / 0.38;
+    const [id, size, byWidth] = PLANTS[i % PLANTS.length];
+    if (model(id, x, 0, z, i * 1.3, pl.r * size, byWidth)) return;
     k.cyl(0.24 * s, 0.5 * s, '#B5651D', x, 0.25 * s, z, 0, 0, 0, 12, 0.19 * s);
     k.sphere(0.36 * s, '#52B788', x, 0.75 * s, z, 1, 1.1, 1);
     k.sphere(0.24 * s, '#40916C', x + 0.18 * s, 1.0 * s, z - 0.1 * s);
     k.sphere(0.22 * s, '#74C69D', x - 0.15 * s, 1.05 * s, z + 0.12 * s);
-  }
+  });
   // mirror frame
   const Mi = L.mirror;
   k.box(Mi.x1 - Mi.x0 + 0.16, 0.08, 0.08, '#8D99AE', (Mi.x0 + Mi.x1) / 2, Mi.height + 0.24, Mi.z + 0.05);

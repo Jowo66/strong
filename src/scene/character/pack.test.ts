@@ -48,6 +48,7 @@ describe('character pack', () => {
     expect(p).not.toBeNull();
     expect(p!.manifest.bones).toHaveLength(23);
     for (const clip of ['Idle', 'Walk', 'Run', 'Victory', 'Walk_Carry']) expect(p!.clips[clip]).toBeDefined();
+    for (const move of ['talk', 'phone', 'drink', 'foldArms', 'build', 'nod', 'dance']) expect(p!.moves[move]).toBeDefined();
   });
 
   it('builds every combination of the creator options', () => {
@@ -103,5 +104,31 @@ describe('character pack', () => {
     const ankle = new THREE.Vector3(0, 0.4, 0).applyMatrix4(shin.matrixWorld);
     expect(ankle.y).toBeLessThan(0.15);
     expect(ankle.y).toBeGreaterThan(-0.1);
+  });
+
+  it('plays the library moves with the feet on the floor', () => {
+    const rig = new PackRig({ ...base, key: 'moves' });
+    const root = new THREE.Group();
+    root.add(rig.object);
+    const pose = restPose();
+    const shin = rig.bones.find((b) => b.name === 'LowerLeg.L')!;
+    const lowest = (anim: Anim, variant: number) => {
+      let low = Infinity;
+      for (let i = 0; i < 120; i++) {
+        const ctx: PoseContext = { anim, t: i * 0.05, variant, reduced: false };
+        Object.assign(pose, computePose(ctx));
+        rig.apply(pose, ctx, 0.05);
+        root.updateMatrixWorld(true);
+        if (i > 40) low = Math.min(low, new THREE.Vector3(0, 0.4, 0).applyMatrix4(shin.matrixWorld).y);
+      }
+      return low;
+    };
+    for (const anim of ['talk', 'phone', 'drink', 'nod'] as Anim[]) {
+      const y = lowest(anim, 0.3);
+      expect(y, anim).toBeLessThan(0.15);
+      expect(y, anim).toBeGreaterThan(-0.1);
+    }
+    expect(lowest('celebrate', 0.9)).toBeGreaterThan(-0.1); // dance
+    expect(lowest('build', 0.3)).toBeGreaterThan(-0.15);    // kneeling
   });
 });
