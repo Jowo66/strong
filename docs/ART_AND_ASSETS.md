@@ -92,9 +92,15 @@ Reduced motion keeps the procedural poses. Props held in the hand follow the pos
 
 ## Furniture (shipped)
 
-`scripts/build-props.py` runs in Blender (`blender -b --factory-startup -P scripts/build-props.py -- "<Design Assets>" public/props`): it imports Quaternius FBX models (CC0), decimates them to a triangle budget and bakes their flat material colours per vertex into `props.json` / `props.bin` (≈35 KB gzipped). `Room.tsx` merges them into its static geometry with `Kit.model`, inside the existing obstacle footprints; if the file is missing it draws the old primitive stand-ins.
+`scripts/build-props.py` runs in Blender (`blender -b --factory-startup -P scripts/build-props.py -- "<Design Assets>" public/props`): it imports Quaternius FBX models (CC0), decimates them to a triangle budget and bakes their flat material colours per vertex into `props.json` / `props.bin` (≈57 KB gzipped). `Room.tsx` merges them into its static geometry with `Kit.model`, inside the existing obstacle footprints; if the file is missing it draws the old primitive stand-ins.
 
 Shipped: five floor plants, a desk plant, a tiny plant on the shake bar, the couch, coffee table and bar stools (Ultimate House Interior Pack) and the reception trophy (Ultimate RPG Items Pack).
+
+Second batch: a floor lamp and round rug in the social space; a drinks fridge, a wall shelf of protein tubs (Ultimate Food Pack jars) and a plate of fruit at the shake bar; a sideboard with the radio (Survival Pack) and a plant behind reception, plus a desk lamp; a washbasin, mirror and two towel rails in the locker room; bins by the water cooler and in the cardio corner; water bottles left by the stretching mats. Members now hold the Survival Pack water bottle and phone (`Avatar.tsx`, falling back to the old shapes). The new floor pieces have obstacles in `layout.json`. Skipped: the Sushi Restaurant Kit (its models are coloured by a texture atlas, which the flat-colour bake can't carry), the Cyberpunk computers (too sci-fi), ceiling lights (the diorama has no ceiling).
+
+## Gym dog (shipped)
+
+`scripts/build-dog.py` (Blender) trims the Ultimate Animated Animals Shiba Inu to five clips (Idle, Idle_2_HeadLow, Walk, Eating and Death) and decimates it, giving `public/props/dog.glb` (≈300 KB, ≈100 KB gzipped). `Dog.tsx` loads it with three's GLTFLoader after the gym has opened. The dog naps in its bed by reception (the Death clip, slowed and held on its last frame, is how it lies down). While members are in, it wakes up to eat at its bowl, trot over to a member and stand facing them, or sniff around a wander point. It walks the sim's nav grid but isn't part of the sim, so saves and tests are unaffected. When the gym closes it goes back to bed.
 
 ## 2. Characters (original art-pass notes)
 

@@ -29,6 +29,26 @@ PROPS = [
     ('coffeeTable', 'Ultimate House Interior Pack - June 2020/FBX/Table_RoundSmall.fbx', 400),
     ('stool', 'Ultimate House Interior Pack - June 2020/FBX/Stool.fbx', 300),
     ('trophy', 'Ultimate RPG Items Pack - Aug 2019/FBX/Chalice.fbx', 400),
+    ('plantSmall', 'Ultimate House Interior Pack - June 2020/FBX/Houseplant_5.fbx', 300),
+    ('floorLamp', 'Ultimate House Interior Pack - June 2020/FBX/Light_Stand2.fbx', 300),
+    ('deskLamp', 'Ultimate House Interior Pack - June 2020/FBX/Light_Desk.fbx', 200),
+    ('towelRail', 'Ultimate House Interior Pack - June 2020/FBX/Bathroom_Towel.fbx', 200),
+    ('mirror', 'Ultimate House Interior Pack - June 2020/FBX/Bathroom_Mirror1.fbx', 100),
+    ('sink', 'Ultimate House Interior Pack - June 2020/FBX/Bathroom_Sink.fbx', 400),
+    ('wallShelf', 'Ultimate House Interior Pack - June 2020/FBX/Shelf_Small1.fbx', 200),
+    ('sideboard', 'Ultimate House Interior Pack - June 2020/FBX/Drawer_1.fbx', 400),
+    ('fridge', 'Ultimate House Interior Pack - June 2020/FBX/Kitchen_Fridge.fbx', 300),
+    ('rug', 'Ultimate House Interior Pack - June 2020/FBX/Carpet_Round.fbx', 200),
+    ('bin', 'Ultimate House Interior Pack - June 2020/FBX/Trashcan_Small1.fbx', 200),
+    ('waterBottle', 'Survival Pack - Sept 2020/FBX/WaterBottle_1.fbx', 150),
+    ('waterBottleRed', 'Survival Pack - Sept 2020/FBX/WaterBottle_3.fbx', 150),
+    ('phone', 'Survival Pack - Sept 2020/FBX/Phone.fbx', 100),
+    ('radio', 'Survival Pack - Sept 2020/FBX/Radio.fbx', 300),
+    ('apple', 'Ultimate Food Pack - Oct 2019/FBX/Apple.fbx', 150),
+    ('orange', 'Ultimate Food Pack - Oct 2019/FBX/Orange.fbx', 150),
+    ('plate', 'Ultimate Food Pack - Oct 2019/FBX/Plate.fbx', 100),
+    ('proteinTub', 'Ultimate Food Pack - Oct 2019/FBX/Jar_Large.fbx', 150),
+    ('proteinTubSmall', 'Ultimate Food Pack - Oct 2019/FBX/PeanutButter.fbx', 150),
 ]
 
 
@@ -121,6 +141,6 @@ for pid, rel, budget in PROPS:
 
 os.makedirs(OUT, exist_ok=True)
 open(os.path.join(OUT, 'props.bin'), 'wb').write(bytes(blob))
-json.dump({'source': 'Quaternius (CC0 1.0): Ultimate House Interior Pack, Ultimate RPG Items Pack', 'props': props},
+json.dump({'source': 'Quaternius (CC0 1.0): Ultimate House Interior Pack, Ultimate RPG Items Pack, Survival Pack, Ultimate Food Pack', 'props': props},
           open(os.path.join(OUT, 'props.json'), 'w'), separators=(',', ':'))
 print(f'{len(props)} props, {len(blob) / 1024:.0f} KB binary')

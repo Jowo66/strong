@@ -45,6 +45,7 @@ export interface Layout {
   obstacles: { rects: { name: string; x0: number; x1: number; z0: number; z1: number }[]; circles: { name: string; x: number; z: number; r: number }[] };
   partitions: { x0: number; x1: number; z0: number; z1: number }[];
   coolerSpot: Vec2; chalkSpots: Vec2[];
+  dog: { bed: Vec2; bowl: Vec2 };
 }
 
 const namePools = Object.values(

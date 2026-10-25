@@ -1,8 +1,8 @@
 // The diorama room (P1–P12): board, zone floors, walls, lockers (doors open while members change), reception,
 // social space, mirror, speakers, Hall of Fame wall, posters, whiteboard, windows, a clock that shows gym time.
 // Static props are merged into a few vertex-coloured meshes; only things that move or are clicked are separate.
-// Plants, the couch, coffee table, bar stools and the reception trophy are Quaternius models (props.ts) when they've
-// loaded, with primitive stand-ins otherwise.
+// Plants, the couch, coffee table, bar stools, the reception trophy and the smaller furnishings (lamps, rug, fridge, sink,
+// shelves, bins, fruit) are Quaternius models (props.ts) when they've loaded; the big pieces have primitive stand-ins.
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -37,12 +37,17 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   const k = new Kit();
   const P = propsData();
   /** Place a model scaled so its height (or, with byWidth, its width) matches `size`; false if it isn't loaded. */
-  const model = (id: string, x: number, y: number, z: number, ry: number, size: number, byWidth = false, squashY = 1): PropModel | null => {
+  const model = (id: string, x: number, y: number, z: number, ry: number, size: number, byWidth = false, squashY = 1, squashZ = 1): PropModel | null => {
     const m = P?.[id];
     if (!m) return null;
     const s = size / (byWidth ? m.size[0] : m.size[1]);
-    k.model(m.geo, x, y, z, ry, s, s * squashY, s);
+    k.model(m.geo, x, y, z, ry, s, s * squashY, s * squashZ);
     return m;
+  };
+  /** Height of a placed model's top surface (for stacking things on it). */
+  const top = (id: string, y: number, size: number, byWidth = false): number => {
+    const m = P?.[id];
+    return m ? y + m.size[1] * (size / (byWidth ? m.size[0] : m.size[1])) : y;
   };
   const { x0, x1, z0, z1 } = L.bounds;
   const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
@@ -86,6 +91,10 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   // towel bin and a laundry cart by the locker door
   k.cyl(0.28, 0.6, '#ADB5BD', -9.6, 0.3, -2.4, 0, 0, 0, 14);
   for (let i = 0; i < 4; i++) k.rbox(0.22, 0.08, 0.15, 0.03, ['#FFFFFF', '#CDE7F0', '#FFFFFF', '#FFE5EC'][i], -9.6 + (i % 2 - 0.5) * 0.18, 0.64 + Math.floor(i / 2) * 0.07, -2.4 + (i % 2 ? 0.05 : -0.05));
+  // washbasin and mirror on the inside of the locker-room partition; towel rails on the partition by the social space
+  model('sink', -9.37, 0, -6.3, -Math.PI / 2, 1.0);
+  model('mirror', -9.1, 0.95, -6.3, -Math.PI / 2, 0.62);
+  for (const x of [-12.7, -11.3]) model('towelRail', x, 0.85, -1.73, Math.PI, 0.7, true);
 
   // reception desk (L-shaped counter), monitor, card reader, bell, a plant
   const R = L.receptionDesk;
@@ -105,6 +114,19 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
     k.sphere(0.16, '#52B788', R.x + 1.0, 1.45, R.z - 0.1);
   }
   model('trophy', R.x - 1.15, 1.165, R.z - 0.2, 0, 0.36); // the gym's own cup
+  model('deskLamp', R.x + 1.95, 1.165, R.z - 0.85, -Math.PI / 2, 0.45);
+  // sideboard behind the desk, with the gym radio and a plant on it
+  model('sideboard', -12.0, 0, 5.6, 0, 1.6, true);
+  const board = top('sideboard', 0, 1.6, true);
+  model('radio', -12.35, board, 5.6, 0.2, 0.28);
+  model('plantSmall', -11.5, board, 5.55, 0, 0.3);
+  // the gym dog's bed and bowls (the dog itself is Dog.tsx)
+  const D = L.dog;
+  k.cyl(0.52, 0.2, '#6D4C41', D.bed.x, 0.1, D.bed.z, 0, 0, 0, 20);
+  k.cyl(0.44, 0.06, '#E9C46A', D.bed.x, 0.19, D.bed.z, 0, 0, 0, 18); // top at Dog.tsx's BED_TOP
+  k.cyl(0.1, 0.06, '#E63946', D.bowl.x, 0.03, D.bowl.z, 0, 0, 0, 14, 0.08);
+  k.cyl(0.1, 0.06, '#118AB2', D.bowl.x + 0.26, 0.03, D.bowl.z + 0.05, 0, 0, 0, 14, 0.08);
+  k.cyl(0.085, 0.01, '#A9D6E5', D.bowl.x + 0.26, 0.055, D.bowl.z + 0.05, 0, 0, 0, 14);
   // welcome mat at the entrance
   k.rbox(1.8, 0.03, 1.0, 0.01, '#3D405B', L.checkInSpot.x, 0.015, 9.4);
   k.rbox(1.6, 0.032, 0.8, 0.01, '#E9C46A', L.checkInSpot.x, 0.016, 9.4);
@@ -120,6 +142,8 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   const tableTop = table ? table.size[1] * (0.9 / table.size[0]) : 0.45;
   if (!table) { k.cyl(0.45, 0.06, '#F2CC8F', -13.2, 0.42, 3.4, 0, 0, 0, 20); k.cyl(0.06, 0.4, '#8B5E34', -13.2, 0.2, 3.4, 0, 0, 0, 8); }
   k.rbox(0.18, 0.12, 0.13, 0.02, '#FFFFFF', -13.1, tableTop + 0.06, 3.3); // a magazine pile
+  model('rug', -13.25, 0.003, 3.35, 0, 1.7, true);
+  model('floorLamp', -14.55, 0, 4.35, 0, 1.65);
   k.rbox(2.6, 1.0, 0.6, 0.05, '#264653', -12.6, 0.5, -1.0);
   k.rbox(2.7, 0.06, 0.7, 0.02, '#F7F1E6', -12.6, 1.03, -1.0);
   for (let i = 0; i < 4; i++) k.cyl(0.07, 0.24, ['#F4A261', '#E76F51', '#2A9D8F', '#8338EC'][i], -13.5 + i * 0.4, 1.18, -1.05, 0, 0, 0, 10, 0.06);
@@ -128,6 +152,18 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
     if (!model('stool', x, 0, -0.45, 0, 0.8)) { k.cyl(0.18, 0.06, '#E76F51', x, 0.75, -0.45, 0, 0, 0, 14); k.cyl(0.04, 0.72, '#ADB5BD', x, 0.36, -0.45, 0, 0, 0, 6); }
   }
   model('plantTiny', -13.78, 1.06, -1.0, 0, 0.3);
+  // fruit on a plate, a drinks fridge at the end of the bar, protein tubs on a shelf above it
+  if (model('plate', -11.95, 1.06, -0.88, 0, 0.3, true)) {
+    for (const [dx, dz, id] of [[-0.06, -0.05, 'apple'], [0.06, -0.03, 'orange'], [-0.03, 0.06, 'orange'], [0.07, 0.07, 'apple']] as const) model(id, -11.95 + dx, 1.07, -0.88 + dz, dx * 20, 0.07);
+  }
+  model('fridge', -10.75, 0, -1.17, 0, 1.75);
+  model('wallShelf', -12.6, 1.15, -1.4, 0, 1.4, true, 1, 0.5);
+  const shelf = top('wallShelf', 1.15, 1.4, true);
+  for (const [x, id] of [[-13.05, 'proteinTub'], [-12.8, 'proteinTubSmall'], [-12.15, 'proteinTub']] as const) model(id, x, shelf, -1.42, 0, 0.17);
+  // bins, and water bottles left by the stretching mats
+  model('bin', -10.65, 0, 3.55, Math.PI / 2, 0.5);
+  model('bin', 14.6, 0, -2.2, -Math.PI / 2, 0.5);
+  for (const [x, z, id] of [[9.55, -0.15, 'waterBottle'], [11.55, 2.0, 'waterBottleRed'], [13.5, 1.75, 'waterBottle']] as const) model(id, x, 0, z, 0, 0.24);
   // water cooler
   const W = L.waterCooler;
   k.rbox(0.42, 1.0, 0.42, 0.05, '#F7F7F7', W.x, 0.5, W.z);

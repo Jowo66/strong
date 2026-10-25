@@ -8,6 +8,7 @@ import type { SimEngine } from '../sim/engine';
 import { Room } from './Room';
 import { StationMesh } from './Stations';
 import { Avatar, type AvatarSource } from './Avatar';
+import { Dog } from './Dog';
 import { lookForCrew, lookForNpc } from './character/look';
 import { useSettings } from '../store/settings';
 import { Kit, kitMaterial } from './kit';
@@ -320,6 +321,7 @@ export function GymScene({ engine }: { engine: SimEngine }) {
         <Equipment />
         <Members />
         <Crew />
+        <Dog />
         <Podium />
         <PortraitBaker />
         <ShadowThrottle every={high ? 2 : 3} />

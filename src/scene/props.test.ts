@@ -22,7 +22,9 @@ beforeAll(async () => {
 describe('props', () => {
   it('loads every prop the room places, sitting on the floor', () => {
     const P = propsData()!;
-    for (const id of ['plantPalm', 'plantMonstera', 'plantSnake', 'plantCactus', 'plantLeafy', 'plantTiny', 'couch', 'coffeeTable', 'stool', 'trophy']) {
+    for (const id of ['plantPalm', 'plantMonstera', 'plantSnake', 'plantCactus', 'plantLeafy', 'plantTiny', 'plantSmall', 'couch', 'coffeeTable', 'stool', 'trophy',
+      'floorLamp', 'deskLamp', 'towelRail', 'mirror', 'sink', 'wallShelf', 'sideboard', 'fridge', 'rug', 'bin', 'waterBottle', 'waterBottleRed',
+      'phone', 'radio', 'apple', 'orange', 'plate', 'proteinTub', 'proteinTubSmall']) {
       const m = P[id];
       expect(m, id).toBeDefined();
       m.geo.computeBoundingBox();

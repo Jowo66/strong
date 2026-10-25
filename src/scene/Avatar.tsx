@@ -16,6 +16,7 @@ import { musicPlaying } from '../store/music';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PackRig, packData } from './character/pack';
 import { claimAuraLight, registerBubble, type BubbleSource } from './overlay';
+import { propsData } from './props';
 
 export interface AvatarSource {
   pos: Vec2; facing: number; anim: Anim; bubble: Bubble | null;
@@ -53,6 +54,17 @@ const bottleGeo = (() => {
   const paint = (g: THREE.BufferGeometry, hex: string) => { const c = new THREE.Color(hex); const a = new Float32Array(g.attributes.position.count * 3); for (let i = 0; i < a.length; i += 3) { a[i] = c.r; a[i + 1] = c.g; a[i + 2] = c.b; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); g.deleteAttribute('uv'); return g; };
   return mergeGeometries([paint(body, '#8ECAE6'), paint(cap, '#264653')])!;
 })();
+/** The Survival Pack bottle and phone (props.ts) once loaded, centred on the hand like the shapes above; else those shapes. */
+let held: { bottle: THREE.BufferGeometry; phone: THREE.BufferGeometry; phoneMat: THREE.Material } | null = null;
+function heldProps(): NonNullable<typeof held> {
+  if (held) return held;
+  const P = propsData();
+  const fit = (id: string, h: number) => { const m = P?.[id]; if (!m) return null; const s = h / m.size[1]; return m.geo.clone().scale(s, s, s).translate(0, -h / 2, 0); };
+  const b = fit('waterBottle', 0.2), ph = fit('phone', 0.11);
+  const out = { bottle: b ?? bottleGeo, phone: ph ?? phoneGeo, phoneMat: ph ? propMaterial : phoneMaterial };
+  if (P) held = out; // props load before the gym opens; don't cache the fallback in case they're late
+  return out;
+}
 const puffGeo = new THREE.IcosahedronGeometry(0.05, 0);
 const plankGeo = new THREE.BoxGeometry(2.2, 0.05, 0.22);
 const plankMaterial = new THREE.MeshStandardMaterial({ color: '#C69C6D', roughness: 0.8 });
@@ -122,6 +134,7 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
 
   // The character pack when it's loaded (it is loaded before the gym opens), else the code-built figure.
   const pr = useMemo(() => (packData() ? new PackRig(look) : null), [look]);
+  const hp = useMemo(heldProps, []);
   useEffect(() => () => { pr?.dispose(); }, [pr]);
   // Build the skeleton and the two outfit meshes once per look.
   const rig = useMemo(() => {
@@ -359,8 +372,8 @@ export function Avatar({ id, look, source, hoverable = true, isPlayer }: Props) 
         </group>
         <mesh ref={dbL} geometry={dbGeo} material={propMaterial} visible={false} castShadow />
         <mesh ref={dbR} geometry={dbGeo} material={propMaterial} visible={false} castShadow />
-        <mesh ref={phone} geometry={phoneGeo} material={phoneMaterial} visible={false} />
-        <mesh ref={bottle} geometry={bottleGeo} material={propMaterial} visible={false} castShadow />
+        <mesh ref={phone} geometry={hp.phone} material={hp.phoneMat} visible={false} />
+        <mesh ref={bottle} geometry={hp.bottle} material={propMaterial} visible={false} castShadow />
         <instancedMesh ref={puff} args={[puffGeo, puffMaterial, 6]} visible={false} />
         <mesh ref={plank} geometry={plankGeo} material={plankMaterial} visible={false} castShadow />
       </group>
