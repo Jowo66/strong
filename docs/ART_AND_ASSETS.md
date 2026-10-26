@@ -98,9 +98,13 @@ Shipped: five floor plants, a desk plant, a tiny plant on the shake bar, the cou
 
 Second batch: a floor lamp and round rug in the social space; a drinks fridge, a wall shelf of protein tubs (Ultimate Food Pack jars) and a plate of fruit at the shake bar; a sideboard with the radio (Survival Pack) and a plant behind reception, plus a desk lamp; a washbasin, mirror and two towel rails in the locker room; bins by the water cooler and in the cardio corner; water bottles left by the stretching mats. Members now hold the Survival Pack water bottle and phone (`Avatar.tsx`, falling back to the old shapes). The new floor pieces have obstacles in `layout.json`. Skipped: the Sushi Restaurant Kit (its models are coloured by a texture atlas, which the flat-colour bake can't carry), the Cyberpunk computers (too sci-fi), ceiling lights (the diorama has no ceiling).
 
-## Gym dog (shipped)
+## Animals (shipped)
 
-`scripts/build-dog.py` (Blender) trims the Ultimate Animated Animals Shiba Inu to five clips (Idle, Idle_2_HeadLow, Walk, Eating and Death) and decimates it, giving `public/props/dog.glb` (≈300 KB, ≈100 KB gzipped). `Dog.tsx` loads it with three's GLTFLoader after the gym has opened. The dog naps in its bed by reception (the Death clip, slowed and held on its last frame, is how it lies down). While members are in, it wakes up to eat at its bowl, trot over to a member and stand facing them, or sniff around a wander point. It walks the sim's nav grid but isn't part of the sim, so saves and tests are unaffected. When the gym closes it goes back to bed.
+`scripts/build-animals.py` (Blender) trims each animal to the clips the gym uses, decimates it, makes its materials opaque (the FBX ones import with alpha 0) and writes `public/animals/<name>.glb`: Shiba Inu and Husky (Ultimate Animated Animals; Idle, Idle_2_HeadLow, Walk, Eating and Death, ≈120 KB gzipped each), a pug (Farm Animals; Idle and Jump, ≈43 KB) and four fish (Cute Fish Pack; Swimming_Normal, ≈18 KB each). `Animals.tsx` loads them with three's GLTFLoader after the gym has opened.
+
+- **Dogs** (`layout.json` `pets.dogs`): the Shiba lives by reception, the Husky in the stretching corner, each with a bed and bowls drawn in `Room.tsx`. They nap in their beds (the Death clip, slowed and held on its last frame, is how they lie down). While members are in, they wake up to eat, trot over to a member or to the other dog and stand facing them, or sniff around a wander point. They walk the sim's nav grid but aren't part of the sim, so saves and tests are unaffected. When the gym closes they go back to bed.
+- **Pug** (`pets.pug`): lives on the couch. It has no walk clip, so it idles there and every so often bounces up and down.
+- **Aquarium** (`pets.aquarium`): a glass tank on the reception sideboard with gravel, weed and a rock. Four fish swim figure-eights of their own size and pace.
 
 ## 2. Characters (original art-pass notes)
 

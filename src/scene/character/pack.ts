@@ -13,6 +13,8 @@ import type { CharacterLook } from './look';
 import { hashString } from './look';
 import { HIP_Y, type BoneName } from './rig';
 import type { Pose, PoseContext } from './poses';
+import { loadAssetPair } from '../assetPair';
+
 
 // ---------------------------------------------------------------- data
 
@@ -59,11 +61,8 @@ export function loadPack(): Promise<Pack | null> {
   if (pack) return Promise.resolve(pack);
   if (!loading) {
     const base = import.meta.env.BASE_URL;
-    loading = Promise.all([
-      fetch(`${base}characters/characters.json`).then((r) => { if (!r.ok) throw new Error(`characters.json ${r.status}`); return r.json() as Promise<Manifest>; }),
-      fetch(`${base}characters/characters.bin`).then((r) => { if (!r.ok) throw new Error(`characters.bin ${r.status}`); return r.arrayBuffer(); }),
-      loadMoves(base),
-    ]).then(([m, bin, moves]) => (pack = { ...decode(m, bin), moves }))
+    loading = Promise.all([loadAssetPair(`${base}characters/characters`, decode), loadMoves(base)])
+      .then(([p, moves]) => (pack = { ...p, moves }))
       .catch((e) => { console.warn('Mini Gym: character pack unavailable, using built-in figures.', e); return null; });
   }
   return loading;
@@ -71,10 +70,7 @@ export function loadPack(): Promise<Pack | null> {
 
 /** The extra moves are optional: without them members use their procedural poses. */
 function loadMoves(base: string): Promise<Record<string, Move>> {
-  return Promise.all([
-    fetch(`${base}characters/moves.json`).then((r) => { if (!r.ok) throw new Error(`moves.json ${r.status}`); return r.json() as Promise<MovesManifest>; }),
-    fetch(`${base}characters/moves.bin`).then((r) => { if (!r.ok) throw new Error(`moves.bin ${r.status}`); return r.arrayBuffer(); }),
-  ]).then(([m, bin]) => {
+  return loadAssetPair(`${base}characters/moves`, (m: MovesManifest, bin) => {
     const per = m.bones.length * 4 + 3;
     return Object.fromEntries(Object.entries(m.clips).map(([name, c]) =>
       [name, { duration: c.duration, frames: c.frames, data: new Int16Array(bin, c.offset, c.frames * per), bones: m.bones }]));

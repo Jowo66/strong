@@ -24,6 +24,8 @@ const FLOOR_KIND: Record<ZoneId, FloorKind> = {
   cardio: 'rubber', bench: 'rubber', cable: 'rubber', stretching: 'wood',
 };
 const LOCKER_COLOURS = ['#7FA7C9', '#6E97BA', '#8DB4D4'];
+/** The reception sideboard; the aquarium sits on it. */
+export const SIDEBOARD = { x: -12.0, z: 5.6, width: 1.6 };
 
 interface LockerDef { spot: Vec2; pos: [number, number, number]; wall: 'left' | 'back' }
 
@@ -115,18 +117,17 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   }
   model('trophy', R.x - 1.15, 1.165, R.z - 0.2, 0, 0.36); // the gym's own cup
   model('deskLamp', R.x + 1.95, 1.165, R.z - 0.85, -Math.PI / 2, 0.45);
-  // sideboard behind the desk, with the gym radio and a plant on it
-  model('sideboard', -12.0, 0, 5.6, 0, 1.6, true);
-  const board = top('sideboard', 0, 1.6, true);
-  model('radio', -12.35, board, 5.6, 0.2, 0.28);
-  model('plantSmall', -11.5, board, 5.55, 0, 0.3);
-  // the gym dog's bed and bowls (the dog itself is Dog.tsx)
-  const D = L.dog;
-  k.cyl(0.52, 0.2, '#6D4C41', D.bed.x, 0.1, D.bed.z, 0, 0, 0, 20);
-  k.cyl(0.44, 0.06, '#E9C46A', D.bed.x, 0.19, D.bed.z, 0, 0, 0, 18); // top at Dog.tsx's BED_TOP
-  k.cyl(0.1, 0.06, '#E63946', D.bowl.x, 0.03, D.bowl.z, 0, 0, 0, 14, 0.08);
-  k.cyl(0.1, 0.06, '#118AB2', D.bowl.x + 0.26, 0.03, D.bowl.z + 0.05, 0, 0, 0, 14, 0.08);
-  k.cyl(0.085, 0.01, '#A9D6E5', D.bowl.x + 0.26, 0.055, D.bowl.z + 0.05, 0, 0, 0, 14);
+  // sideboard behind the desk, with the aquarium (Animals.tsx) and a plant on it
+  model('sideboard', SIDEBOARD.x, 0, SIDEBOARD.z, 0, SIDEBOARD.width, true);
+  model('plantSmall', -11.5, top('sideboard', 0, SIDEBOARD.width, true), 5.55, 0, 0.3);
+  // the dogs' beds and bowls (the dogs themselves are Animals.tsx)
+  L.pets.dogs.forEach((D, i) => {
+    k.cyl(0.52, 0.2, '#6D4C41', D.bed.x, 0.1, D.bed.z, 0, 0, 0, 20);
+    k.cyl(0.44, 0.06, ['#E9C46A', '#90BE6D'][i % 2], D.bed.x, 0.19, D.bed.z, 0, 0, 0, 18); // top at Animals.tsx's BED_TOP
+    k.cyl(0.1, 0.06, ['#E63946', '#F4A261'][i % 2], D.bowl.x, 0.03, D.bowl.z, 0, 0, 0, 14, 0.08);
+    k.cyl(0.1, 0.06, '#118AB2', D.bowl.x + 0.26, 0.03, D.bowl.z + 0.05, 0, 0, 0, 14, 0.08);
+    k.cyl(0.085, 0.01, '#A9D6E5', D.bowl.x + 0.26, 0.055, D.bowl.z + 0.05, 0, 0, 0, 14);
+  });
   // welcome mat at the entrance
   k.rbox(1.8, 0.03, 1.0, 0.01, '#3D405B', L.checkInSpot.x, 0.015, 9.4);
   k.rbox(1.6, 0.032, 0.8, 0.01, '#E9C46A', L.checkInSpot.x, 0.016, 9.4);
@@ -160,6 +161,7 @@ function buildStatic(L: ReturnType<typeof useEngine>['c']['layout'], lockers: Lo
   model('wallShelf', -12.6, 1.15, -1.4, 0, 1.4, true, 1, 0.5);
   const shelf = top('wallShelf', 1.15, 1.4, true);
   for (const [x, id] of [[-13.05, 'proteinTub'], [-12.8, 'proteinTubSmall'], [-12.15, 'proteinTub']] as const) model(id, x, shelf, -1.42, 0, 0.17);
+  model('radio', -12.5, shelf, -1.42, 0, 0.24);
   // bins, and water bottles left by the stretching mats
   model('bin', -10.65, 0, 3.55, Math.PI / 2, 0.5);
   model('bin', 14.6, 0, -2.2, -Math.PI / 2, 0.5);

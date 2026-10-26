@@ -3,6 +3,7 @@
 // room merges it into its static vertex-coloured geometry (kit.ts). If the file is missing the room keeps its
 // primitive stand-ins.
 import * as THREE from 'three';
+import { loadAssetPair } from './assetPair';
 
 interface Manifest {
   props: Record<string, { vertices: number; indices: number; position: number; colour: number; index: number; size: [number, number, number] }>;
@@ -23,10 +24,7 @@ export function loadProps(): Promise<Record<string, PropModel> | null> {
   if (props) return Promise.resolve(props);
   if (!loading) {
     const base = import.meta.env.BASE_URL;
-    loading = Promise.all([
-      fetch(`${base}props/props.json`).then((r) => { if (!r.ok) throw new Error(`props.json ${r.status}`); return r.json() as Promise<Manifest>; }),
-      fetch(`${base}props/props.bin`).then((r) => { if (!r.ok) throw new Error(`props.bin ${r.status}`); return r.arrayBuffer(); }),
-    ]).then(([m, bin]) => (props = decode(m, bin)))
+    loading = loadAssetPair(`${base}props/props`, decode).then((p) => (props = p))
       .catch((e) => { console.warn('Mini Gym: props unavailable, using built-in shapes.', e); return null; });
   }
   return loading;
