@@ -28,6 +28,9 @@ button { cursor: pointer; }
   padding: 8px 12px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
   backdrop-filter: blur(6px);
 }
+.garden-nav { display: flex; align-items: center; gap: 4px; padding-right: 10px; border-right: 1px solid var(--line); }
+.garden-nav a { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 6px; border-radius: 99px; color: #3F6B3C; font-weight: 700; text-decoration: none; }
+.garden-nav a:hover, .garden-nav a:focus-visible { background: #3F6B3C; color: #fff; }
 .brand { font-weight: 800; font-size: 1.15em; letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px; }
 .clock { display: flex; gap: 10px; align-items: center; color: var(--muted); }
 .clock strong { color: var(--ink); font-variant-numeric: tabular-nums; font-size: 1.1em; }
